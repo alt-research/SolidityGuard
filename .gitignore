@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+/lib/
+!**/src/lib/
+
+# Build artifacts
+out/
+cache/
+artifacts/
+typechain-types/
+build/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+coverage.json
+lcov.info
+
+# Reports (generated)
+*.pdf
+slither-results.json
+mythril-results.json
+aderyn-report.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Lock files
+Cargo.lock
+
+# Build / generated
+dist/
+target/
+gen/
+
+# Foundry
+broadcast/
+
+# Temp
+/tmp/
+*.tmp
+
+# Claude Code local config (user-specific)
+CLAUDE.md
+.claude/settings.json
+.claude/teams/
+.claude/tasks/
+.claude/projects/

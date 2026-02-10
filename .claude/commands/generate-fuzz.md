@@ -1,0 +1,1 @@
+../skills/solidity-guard/commands/generate-fuzz.md

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solidityguard"
+version = "1.0.0"
+description = "AI-powered Solidity smart contract security audit CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "click>=8.1",
+    "rich>=13.0",
+]
+
+[project.scripts]
+solidityguard = "solidityguard.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["solidityguard*"]

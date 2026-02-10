@@ -1,0 +1,34 @@
+# SolidityGuard Docker Compose
+# Usage:
+#   docker compose up              # Start web UI at http://localhost:8000
+#   docker compose up -d           # Start in background
+#   docker compose run cli audit /audit  # Run CLI audit
+#
+# Mount your contracts:
+#   docker compose run -v ./my-contracts:/audit cli audit /audit
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "8000:8000"
+    volumes:
+      - audit-data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./contracts:/audit
+      - audit-data:/app/data
+    profiles:
+      - cli
+
+volumes:
+  audit-data:

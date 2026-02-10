@@ -1,0 +1,31 @@
+{
+  "name": "solidity-guard",
+  "version": "1.0.0",
+  "description": "The most advanced AI-powered Solidity/EVM smart contract security audit agent. Detects 104 vulnerability patterns across reentrancy, access control, arithmetic, DeFi, proxy, and token categories. Uses multi-agent architecture with knowledge from 15,000+ real audit findings via Solodit, SWC Registry, and top audit firm reports.",
+  "author": {
+    "name": "SolidityGuard",
+    "url": "https://github.com/alt-research/SolidityGuard"
+  },
+  "repository": "https://github.com/alt-research/SolidityGuard",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "evm",
+    "security",
+    "audit",
+    "smart-contract",
+    "vulnerability",
+    "defi",
+    "blockchain",
+    "slither",
+    "mythril",
+    "echidna",
+    "foundry"
+  ],
+  "categories": [
+    "security",
+    "blockchain",
+    "audit"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "solidityguard-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SolidityGuard Desktop - Tauri-based smart contract security audit tool",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

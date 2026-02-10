@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for SolidityGuard desktop app",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "shell:default",
+    "shell:allow-open"
+  ]
+}

@@ -1,0 +1,1 @@
+../skills/solidity-guard/commands/scan-access-control.md

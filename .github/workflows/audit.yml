@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/skills/solidity-guard/scripts/**'
+      - 'apps/cli/**'
+      - 'apps/web/**'
+      - '.github/workflows/audit.yml'
+  pull_request:
+    paths:
+      - '.claude/skills/solidity-guard/scripts/**'
+      - 'apps/cli/**'
+      - 'apps/web/**'
+      - '.github/workflows/audit.yml'
+  workflow_dispatch:
+
+jobs:
+  # ── Lint ──────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint Python
+        run: ruff check .claude/skills/solidity-guard/scripts/ apps/web/backend/
+
+  # ── Scanner Tests & Benchmark ────────────────────────────────────────
+  tests:
+    name: Scanner Tests & Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Run unit tests
+        run: python3 -m pytest .claude/skills/solidity-guard/scripts/test_scanners.py -v
+
+      - name: Run DeFiVulnLabs benchmark
+        run: |
+          python3 .claude/skills/solidity-guard/scripts/ctf_benchmark.py \
+            --output benchmark-results.json
+
+      - name: Validate 100% detection rate
+        run: |
+          python3 -c "
+          import json, sys
+          with open('benchmark-results.json') as f:
+              data = json.load(f)
+          defi = data.get('DeFiVulnLabs', {})
+          total = defi.get('total_contracts', 0)
+          detected = defi.get('detected', 0)
+          rate = (detected / total * 100) if total else 0
+          print(f'Detection rate: {detected}/{total} ({rate:.1f}%)')
+          if rate < 100:
+              print(f'::error::Detection rate {rate:.1f}% below 100%')
+              sys.exit(1)
+          print('Benchmark PASSED')
+          "
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f benchmark-results.json ]; then
+            python3 -c "
+          import json
+          with open('benchmark-results.json') as f:
+              data = json.load(f)
+          defi = data.get('DeFiVulnLabs', {})
+          total = defi.get('total_contracts', 0)
+          detected = defi.get('detected', 0)
+          results = defi.get('results', [])
+          tp = sum(len(r.get('true_positives', [])) for r in results)
+          expected = sum(len(r.get('expected', [])) for r in results)
+          print('## SolidityGuard Benchmark Results')
+          print()
+          print(f'| Metric | Value |')
+          print(f'|--------|-------|')
+          print(f'| Contracts | {total} |')
+          print(f'| Detected | {detected}/{total} |')
+          print(f'| Patterns | {tp}/{expected} |')
+          print(f'| Rate | {detected*100//total if total else 0}% |')
+          " >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Frontend Build ───────────────────────────────────────────────────
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install & build
+        run: |
+          cd apps/web/frontend
+          npm ci
+          npm run build
+
+      - name: TypeScript check
+        run: |
+          cd apps/web/frontend
+          npx tsc --noEmit
+
+  # ── Backend Check ────────────────────────────────────────────────────
+  backend:
+    name: Backend Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend
+        run: pip install -e apps/web/backend
+
+      - name: Test import
+        run: python3 -c "from solidityguard_api.main import app; print('Backend OK')"
