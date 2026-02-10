@@ -21,7 +21,7 @@ export default function Dashboard() {
           Welcome{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
         </h1>
         <p className="text-[13px] text-text-secondary mt-0.5">
-          AI-powered smart contract security auditing
+          Smart contract security auditing
         </p>
       </div>
 

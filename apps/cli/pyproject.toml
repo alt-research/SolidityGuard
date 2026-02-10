@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "solidityguard"
-version = "1.0.0"
-description = "AI-powered Solidity smart contract security audit CLI"
+version = "1.0.1"
+description = "Solidity smart contract security audit CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

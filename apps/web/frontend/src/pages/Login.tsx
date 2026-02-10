@@ -17,7 +17,7 @@ export default function Login() {
 
         <h1 className="text-[24px] font-bold text-text-primary tracking-tight mb-1">SolidityGuard</h1>
         <p className="text-[13px] text-text-secondary mb-8 leading-relaxed">
-          AI-powered smart contract security audit
+          Smart contract security auditing
         </p>
 
         <button

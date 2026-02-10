@@ -1,37 +1,52 @@
+<h1 align="center">SolidityGuard</h1>
+
+<p align="center">
+  <strong>Advanced Solidity/EVM smart contract security auditor</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/alt-research/SolidityGuard/actions/workflows/ci.yml"><img src="https://github.com/alt-research/SolidityGuard/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/alt-research/SolidityGuard/releases/latest"><img src="https://img.shields.io/github/v/release/alt-research/SolidityGuard?color=%234f46e5" alt="Latest Release" /></a>
+  <a href="https://solidityguard.org"><img src="https://img.shields.io/badge/Web-solidityguard.org-green" alt="Web App" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-red" alt="License" /></a>
+</p>
+
 <p align="center">
   <img src="https://img.shields.io/badge/Patterns-104-blue?style=flat-square" alt="104 Patterns" />
   <img src="https://img.shields.io/badge/Tools-8-blue?style=flat-square" alt="8 Tools" />
   <img src="https://img.shields.io/badge/DeFiVulnLabs-100%25-brightgreen?style=flat-square" alt="DeFiVulnLabs 100%" />
   <img src="https://img.shields.io/badge/Paradigm%20CTF-100%25-brightgreen?style=flat-square" alt="Paradigm CTF 100%" />
-  <img src="https://img.shields.io/badge/Tests-66-brightgreen?style=flat-square" alt="66 Tests" />
   <img src="https://img.shields.io/badge/OWASP%202025-Aligned-orange?style=flat-square" alt="OWASP 2025" />
-  <img src="https://img.shields.io/badge/License-Non--Commercial-lightgrey?style=flat-square" alt="License" />
 </p>
 
-# SolidityGuard
-
-Advanced AI-powered Solidity/EVM smart contract security audit agent.
-
-> **Try it now at [solidityguard.org](https://solidityguard.org)** — no setup required. Upload your contracts and get a comprehensive security analysis in minutes.
-
-> **Need a professional audit?** Contact **maintainers@altresear.ch** for comprehensive manual + AI-assisted security reviews.
+<p align="center">
+  <a href="https://solidityguard.org">Try it now</a> &middot;
+  <a href="#quick-start">Quick Start</a> &middot;
+  <a href="#vulnerability-patterns-104">104 Patterns</a> &middot;
+  <a href="https://github.com/alt-research/SolidityGuard/releases">Downloads</a> &middot;
+  <a href="#contributing">Contributing</a>
+</p>
 
 ---
 
+> **Try it now at [solidityguard.org](https://solidityguard.org)** — scan your Solidity contracts instantly from your browser, no installation required.
+
+> **Need a professional, in-depth audit for your protocol?** Contact us at **maintainers@altresear.ch** — we offer comprehensive manual + AI-assisted security reviews tailored to your codebase.
+
 ## Features
 
-- **104 Vulnerability Patterns** (ETH-001 to ETH-104) — reentrancy, access control, DeFi, proxy, oracle, transient storage, EIP-7702, ERC-4337, restaking, L2
+- **104 Vulnerability Patterns** (ETH-001 to ETH-104) — from real audits, exploits, SWC Registry, OWASP 2025, and 2025-2026 research
 - **8-Tool Integration** — Slither, Mythril, Echidna, Aderyn, Foundry v1.0, Medusa v1, Halmos, Certora
-- **Multi-Agent Architecture** — 9 specialized sub-agents for deep parallel analysis
+- **3 Application Surfaces** — CLI, Web ([solidityguard.org](https://solidityguard.org)), Desktop (Tauri v2)
+- **Docker Support** — scan locally with zero setup, your code never leaves your machine
+- **Professional Reports** — OpenZeppelin/Trail of Bits-style Markdown + PDF with severity scoring
 - **7-Phase Deep Audit** — scan, verify, parallel agents, exploit PoC, dynamic verification, fuzz, report
+- **Multi-Agent Architecture** — 9 specialized sub-agents for deep parallel analysis
 - **Dynamic Exploit Verification** — Foundry fork-based PoC testing on forked mainnet
 - **Formal Verification** — Halmos symbolic tests + Certora CVL rules
-- **Professional Reports** — OpenZeppelin/Trail of Bits-style Markdown + PDF with severity scoring
-- **Cross-Tool Verification** — confidence boosting, deduplication, false positive reduction
 - **Fuzz Test Generation** — Foundry invariant tests + Echidna property tests from scan findings
 - **OWASP 2025 Aligned** — covers all Smart Contract Top 10 2025 categories
 - **CTF-Validated** — 100% detection on DeFiVulnLabs (56/56) + Paradigm CTF (24/24 static)
-- **3 Surfaces** — CLI (Click + Rich), Web (FastAPI + React + WebSocket), Desktop (Tauri v2)
 
 ## Benchmark Results
 
@@ -43,25 +58,24 @@ Advanced AI-powered Solidity/EVM smart contract security audit agent.
 | **Paradigm CTF 2023** | 15 challenges | **100%** (7/7 static) |
 | **Combined** | 100 contracts | **80/80 static (100%)** |
 
-```bash
-python3 scripts/ctf_benchmark.py --all    # Run all benchmarks
-python3 -m pytest scripts/test_scanners.py -v  # 43 scanner tests
-```
-
----
-
 ## Quick Start
+
+### Web (Fastest)
+
+Visit **[solidityguard.org](https://solidityguard.org)** to start scanning immediately — no setup needed.
 
 ### Docker (Recommended)
 
 ```bash
-# CLI audit
+# Scan a local contracts directory (no Python needed)
 docker build -t solidityguard .
 docker run -v ./contracts:/audit solidityguard audit /audit
 
-# Web UI at http://localhost:8000
+# Web UI — dashboard at http://localhost:8000
 docker compose up
 ```
+
+The desktop app auto-detects Docker and runs scans locally — your code never leaves your machine.
 
 ### CLI
 
@@ -76,7 +90,19 @@ solidityguard patterns                    # List all 104 patterns
 solidityguard tools                       # Check installed tools
 ```
 
-### Web
+### Desktop
+
+Download from [Releases](https://github.com/alt-research/SolidityGuard/releases) — available for macOS (.dmg), Windows (.msi, .exe), and Linux (.AppImage, .deb).
+
+Or build from source:
+
+```bash
+cd apps/desktop && npm install && npm run tauri dev
+```
+
+Desktop app scans contracts locally using installed tools (slither, aderyn) or Docker as fallback — no backend server required.
+
+### Web (Self-Hosted)
 
 ```bash
 # Backend
@@ -85,15 +111,24 @@ uvicorn solidityguard_api.main:app --reload
 
 # Frontend (separate terminal)
 cd apps/web/frontend && npm install && npm run dev
+# Open http://localhost:5173
 ```
 
-### Desktop (Tauri v2)
+### CI/CD Integration
 
-```bash
-cd apps/desktop && npm install && npm run tauri dev
+Add SolidityGuard to your GitHub Actions workflow:
+
+```yaml
+- name: Run SolidityGuard
+  run: |
+    pip install slither-analyzer
+    python3 scripts/solidity_guard.py scan --path ./contracts --json
+    # Fail on critical findings
+    CRITICAL=$(python3 -c "import json; d=json.load(open('results.json')); print(d.get('summary',{}).get('critical',0))")
+    if [ "$CRITICAL" -gt 0 ]; then exit 1; fi
 ```
 
-Desktop app scans contracts locally using installed tools (slither, aderyn) or Docker as fallback — no backend server required.
+See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for a complete example.
 
 ### Slash Commands (Claude Code Agent)
 
@@ -165,9 +200,9 @@ Desktop app scans contracts locally using installed tools (slither, aderyn) or D
 
 ## Tool Integration
 
-| Tool | Type | Speed | Detectors |
-|------|------|-------|-----------|
-| **Slither** | Static analysis | < 1 sec | 90+ built-in |
+| Tool | Type | Speed | Purpose |
+|------|------|-------|---------|
+| **Slither** | Static analysis | < 1 sec | 90+ built-in detectors |
 | **Aderyn** | Static analysis (Rust) | Sub-second | 100+ detectors |
 | **Mythril** | Symbolic execution | Minutes | Deep path analysis |
 | **Echidna** | Property-based fuzzing | 3K+ tx/sec | Custom invariants |
@@ -224,6 +259,19 @@ Phase 7: Report & Remediation  ─► Professional report + fixed code samples
 | Meta Pool | $27M | Minting bug | ETH-048 |
 | Cork Protocol | $11M | V4 hook auth bypass | ETH-094 |
 
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `solidity_guard.py` | Combined scanner orchestrator (50+ detectors) |
+| `ctf_benchmark.py` | CTF benchmark framework (DeFiVulnLabs + Paradigm CTF) |
+| `slither_runner.py` | Slither integration |
+| `report_generator.py` | Professional Markdown + PDF report |
+| `verify_findings.py` | Finding verification prompts |
+| `test_scanners.py` | Test suite (43 tests) |
+
+All scripts are located in [`.claude/skills/solidity-guard/scripts/`](.claude/skills/solidity-guard/scripts/).
+
 ## Project Structure
 
 ```
@@ -242,13 +290,14 @@ SolidityGuard/
 ├── knowledge-base/
 │   ├── exploits/               # 25+ exploit case studies
 │   └── checklists/             # 6 security checklists
-├── docker/                     # Docker configs
+├── .github/workflows/          # CI/CD
 ├── Dockerfile                  # CLI Docker image
-├── docker-compose.yml          # Web + CLI orchestration
-└── .github/workflows/          # CI/CD
+└── docker-compose.yml          # Web + CLI orchestration
 ```
 
 ## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/my-improvement`)
@@ -256,12 +305,11 @@ SolidityGuard/
 4. Ensure all tests pass: `python3 -m pytest scripts/test_scanners.py -v`
 5. Submit a Pull Request
 
-Contributions welcome in these areas:
-- New vulnerability pattern detectors
-- Exploit case studies (anonymized)
-- Tool integrations
-- False positive reduction
-- Documentation improvements
+Contributions welcome: new pattern detectors, exploit case studies, tool integrations, false positive reduction, and documentation.
+
+## Security
+
+Found a vulnerability in SolidityGuard itself? See [SECURITY.md](SECURITY.md) for responsible disclosure.
 
 ## References
 
@@ -276,17 +324,19 @@ Contributions welcome in these areas:
 
 ## Disclaimer
 
-**THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND.**
+**THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED.**
 
-SolidityGuard is an automated security analysis tool and is **not a substitute for a professional manual security audit**. No automated tool can guarantee detection of all vulnerabilities. Use at your own risk.
+SolidityGuard is an automated security analysis tool and is **not a substitute for a comprehensive, professional manual security audit**. While SolidityGuard employs 104 vulnerability patterns and 8 security tools, **no automated tool can guarantee the detection of all vulnerabilities, bugs, or security issues** in smart contracts. New attack vectors, zero-day exploits, and novel vulnerability patterns may not be covered.
 
-**Limitation of liability:** To the maximum extent permitted by law, Alt Research Ltd. shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from use of this software.
+**Use at your own risk.** You are solely responsible for any decisions you make based on SolidityGuard's output, including deploying smart contracts, managing funds, or modifying code. The absence of findings does not certify a contract as secure.
 
-**Indemnification:** By using SolidityGuard, you agree to indemnify and hold harmless Alt Research Ltd. from any claims arising from your use of the software.
+**Limitation of liability:** To the maximum extent permitted by applicable law, Alt Research Ltd., its directors, officers, employees, agents, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of funds, tokens, digital assets, profits, revenue, or business opportunities arising from the use of this software or reliance on its output.
+
+**Indemnification:** By using SolidityGuard, you agree to indemnify, defend, and hold harmless Alt Research Ltd. from any claims, liabilities, damages, losses, costs, and expenses arising from your use of the software, your smart contracts, or any reliance on the software's output.
 
 For a professional manual audit, contact **maintainers@altresear.ch**.
 
-See full terms at [solidityguard.org/terms](https://solidityguard.org/terms) and [solidityguard.org/privacy](https://solidityguard.org/privacy).
+See the full [LICENSE](LICENSE) for details.
 
 ## Donate
 

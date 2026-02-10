@@ -92,7 +92,7 @@ export default function Settings() {
             <span className="text-[14px] font-semibold text-text-primary">SolidityGuard v1.0</span>
           </div>
           <p className="text-[13px] text-text-secondary leading-relaxed">
-            AI-powered smart contract security audit agent with 104 vulnerability patterns,
+            Smart contract security audit tool with 104 vulnerability patterns,
             8 analysis tools, and multi-agent team architecture.
           </p>
           <div className="flex flex-wrap gap-2 pt-1">

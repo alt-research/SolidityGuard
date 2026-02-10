@@ -150,7 +150,30 @@ echidna . --contract MyContractTest --config echidna.yaml
 
 ### Phase 6: Report Generation (Lead)
 
-Generate professional report using the report-generator skill.
+After all phases complete, ALWAYS generate a professional report. First, write all collected findings to a JSON file, then generate the report:
+
+```bash
+# Write findings to JSON (construct from all phases)
+python3 -c "
+import json
+findings = []  # Populate with all findings from phases 1-5
+# Each finding: {id, title, severity, confidence, description, file, line, tool, remediation, category, code_snippet}
+data = {
+    'project': '[TARGET_PATH]',
+    'summary': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'informational': 0, 'total': 0},
+    'findings': findings,
+    'tools_used': ['slither', 'aderyn', 'pattern-scanner'],
+    'score': 100  # Calculate: 100 - critical*20 - high*10 - medium*3 - low
+}
+with open('/tmp/deep_audit_results.json', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+
+# Generate professional Markdown report
+python3 .claude/skills/solidity-guard/scripts/report_generator.py /tmp/deep_audit_results.json --output audit-report.md --project "[PROJECT_NAME]"
+```
+
+**IMPORTANT**: Always generate the report file and tell the user where it is. The report must contain all findings from ALL phases (automated scan + agent team + exploit PoC + fuzz testing).
 
 Then clean up:
 

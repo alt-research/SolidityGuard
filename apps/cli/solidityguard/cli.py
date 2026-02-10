@@ -41,7 +41,7 @@ from solidityguard.ui import (
 
 @click.group()
 def cli():
-    """SolidityGuard -- AI-powered Solidity smart contract security audit."""
+    """SolidityGuard -- Solidity smart contract security audit."""
     pass
 
 

@@ -9,7 +9,7 @@ SCANNER="${SCRIPT_DIR}/solidity_guard.py"
 if [ $# -lt 1 ]; then
     echo "Usage: solidityguard-scan <path-to-contracts> [--output results.json]"
     echo ""
-    echo "SolidityGuard — AI-powered Solidity security scanner"
+    echo "SolidityGuard — Solidity security scanner"
     echo "  104 vulnerability patterns (ETH-001 to ETH-104)"
     echo "  50+ pattern detectors"
     echo "  100% detection on DeFiVulnLabs + Paradigm CTF"

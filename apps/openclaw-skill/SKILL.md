@@ -1,13 +1,13 @@
 ---
 name: solidityguard
-description: "AI-powered Solidity/EVM smart contract security auditor with 104 vulnerability patterns, multi-tool integration, and professional report generation."
+description: "Advanced Solidity/EVM smart contract security auditor with 104 vulnerability patterns, multi-tool integration, and professional report generation."
 metadata: {"openclaw":{"emoji":"🛡️","homepage":"https://solidityguard.org","os":["darwin","linux","win32"],"requires":{"bins":["python3"],"anyBins":["slither","aderyn"]},"primaryEnv":"SOLIDITYGUARD_PATH","install":{"npm":"solidityguard","pip":"solidityguard"}}}
 user-invocable: true
 ---
 
 # SolidityGuard — Smart Contract Security Auditor
 
-AI-powered Solidity/EVM smart contract security audit skill with 104 vulnerability patterns covering reentrancy, access control, arithmetic, DeFi, proxy, oracle, transient storage (EIP-1153), account abstraction (ERC-4337), and EIP-7702/Pectra.
+Advanced Solidity/EVM smart contract security audit skill with 104 vulnerability patterns covering reentrancy, access control, arithmetic, DeFi, proxy, oracle, transient storage (EIP-1153), account abstraction (ERC-4337), and EIP-7702/Pectra.
 
 ## When to Use
 

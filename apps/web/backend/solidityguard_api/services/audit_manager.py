@@ -66,7 +66,7 @@ class AuditState:
             high=sum(1 for f in self.findings if f.severity == "HIGH"),
             medium=sum(1 for f in self.findings if f.severity == "MEDIUM"),
             low=sum(1 for f in self.findings if f.severity == "LOW"),
-            informational=sum(1 for f in self.findings if f.severity == "INFORMATIONAL"),
+            informational=sum(1 for f in self.findings if f.severity in ("INFORMATIONAL", "INFO")),
             total=len(self.findings),
         )
         return AuditStatus(
@@ -246,7 +246,13 @@ class AuditManager:
             counts = state.to_status().findings_count
             ws_manager.broadcast_sync(audit_id, {
                 "type": "complete",
-                "summary": counts.model_dump(),
+                "summary": {
+                    "CRITICAL": counts.critical,
+                    "HIGH": counts.high,
+                    "MEDIUM": counts.medium,
+                    "LOW": counts.low,
+                    "INFO": counts.informational,
+                },
                 "score": state.score,
             })
 

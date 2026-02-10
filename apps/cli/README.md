@@ -1,6 +1,6 @@
 # SolidityGuard CLI
 
-AI-powered Solidity smart contract security audit command-line tool with rich terminal UI.
+Solidity smart contract security audit command-line tool with rich terminal UI.
 
 ## Install
 

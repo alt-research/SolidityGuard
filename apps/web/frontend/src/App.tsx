@@ -34,7 +34,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      {/* OAuth callback can land on any path with ?token= param, AuthProvider handles it */}
+      {/* Public pages — no auth required */}
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+
+      {/* Authenticated pages */}
       <Route
         element={
           <AuthGate>
@@ -49,8 +53,6 @@ export default function App() {
         <Route path="/audit/:id/report" element={<Report />} />
         <Route path="/patterns" element={<Patterns />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

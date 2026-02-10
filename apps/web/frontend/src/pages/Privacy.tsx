@@ -1,16 +1,23 @@
 import { Link } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Shield } from 'lucide-react'
 
 export default function Privacy() {
   return (
-    <div className="p-6 max-w-3xl">
-      <Link
-        to="/settings"
-        className="inline-flex items-center gap-1.5 text-[12px] text-text-secondary hover:text-text-primary transition-colors no-underline mb-4"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Back to Settings
-      </Link>
+    <div className="min-h-screen bg-bg-primary p-6">
+    <div className="max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-[12px] text-text-secondary hover:text-text-primary transition-colors no-underline"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to SolidityGuard
+        </Link>
+        <Link to="/" className="inline-flex items-center gap-2 text-[14px] font-semibold text-text-primary no-underline">
+          <Shield className="w-4 h-4 text-accent" />
+          SolidityGuard
+        </Link>
+      </div>
 
       <h1 className="text-[20px] font-bold text-text-primary tracking-tight mb-1">
         Privacy Policy
@@ -179,6 +186,7 @@ export default function Privacy() {
           </a>
         </div>
       </div>
+    </div>
     </div>
   )
 }

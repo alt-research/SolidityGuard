@@ -30,7 +30,8 @@ def print_banner():
     """Print the SolidityGuard banner."""
     banner = Text()
     banner.append("SolidityGuard", style="bold green")
-    banner.append(" v1.0.0", style="dim")
+    from solidityguard import __version__
+    banner.append(f" v{__version__}", style="dim")
     banner.append(" -- Smart Contract Security Audit", style="")
     console.print(Panel(banner, border_style="green"))
 

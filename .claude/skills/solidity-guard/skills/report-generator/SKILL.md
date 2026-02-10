@@ -54,7 +54,7 @@ Transform raw security findings into professional, actionable audit reports foll
 # Security Audit Report
 ## [Protocol Name]
 
-**Prepared by**: SolidityGuard AI Security Audit Agent
+**Prepared by**: SolidityGuard Security Audit Tool
 **Date**: [YYYY-MM-DD]
 
 ## 1. Executive Summary

@@ -91,9 +91,26 @@ myth analyze contracts/MyContract.sol -o json > mythril-results.json
    - Confidence scores (Slither: 80%, Mythril: 85%, Multi-tool: 95%)
 
 5. **Report Generation**
-   - Security Score (0-100)
-   - Findings by severity
-   - Remediation recommendations
+   After scanning is complete, ALWAYS generate a professional report:
+   ```bash
+   # Save findings to JSON first (the CLI audit -o flag does this)
+   # Then generate the report:
+   python3 .claude/skills/solidity-guard/scripts/report_generator.py /tmp/audit_results.json --output audit-report.md --project "[PROJECT_NAME]"
+   ```
+
+   If the scan was done via CLI (`solidityguard audit ... -o results.json`), generate the report from results.json:
+   ```bash
+   python3 .claude/skills/solidity-guard/scripts/report_generator.py results.json -o audit-report.md
+   ```
+
+   The report includes:
+   - Executive Summary with security score (0-100)
+   - Severity distribution
+   - Detailed findings with file:line, code snippets, attack scenarios
+   - Remediation recommendations with fixed code
+   - Methodology and tool versions
+
+   **IMPORTANT**: Always output the report file path so the user can access it. If no JSON file exists, construct one from the findings collected during the audit phases and then generate the report.
 
 ## Deep Analysis with Agent Teams
 

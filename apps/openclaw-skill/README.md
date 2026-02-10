@@ -1,6 +1,6 @@
 # SolidityGuard — OpenClaw Skill
 
-AI-powered Solidity/EVM smart contract security audit skill for [OpenClaw](https://openclaw.ai).
+Advanced Solidity/EVM smart contract security audit skill for [OpenClaw](https://openclaw.ai).
 
 ## Features
 

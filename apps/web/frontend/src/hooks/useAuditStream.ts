@@ -94,7 +94,8 @@ export function useAuditStream(auditId: string | undefined): AuditStreamState {
           CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0,
         };
         for (const f of result.findings) {
-          const sev = (f.severity?.toUpperCase() || 'INFO') as Severity;
+          let sev = (f.severity?.toUpperCase() || 'INFO') as Severity;
+          if (sev === ('INFORMATIONAL' as Severity)) sev = 'INFO';
           if (sev in counts) counts[sev]++;
         }
         setState({

@@ -30,13 +30,23 @@ _scanner = _load_module("solidity_guard", _SCANNER_PATH)
 _report_gen = _load_module("report_generator", _REPORT_GEN_PATH)
 
 
+def _normalize_severity(severity: str) -> str:
+    """Normalize severity to match frontend expectations (CRITICAL/HIGH/MEDIUM/LOW/INFO)."""
+    s = severity.upper()
+    if s == "INFORMATIONAL":
+        return "INFO"
+    if s in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"):
+        return s
+    return "INFO"
+
+
 def _raw_to_finding(f) -> Finding:
     """Convert a raw finding (dataclass or dict) to a Finding model."""
     d = f.to_dict() if hasattr(f, "to_dict") else f
     return Finding(
         id=d.get("id", ""),
         title=d.get("title", ""),
-        severity=d.get("severity", "INFORMATIONAL"),
+        severity=_normalize_severity(d.get("severity", "INFO")),
         confidence=d.get("confidence", 0.0),
         file=d.get("file", ""),
         line=d.get("line", 0),

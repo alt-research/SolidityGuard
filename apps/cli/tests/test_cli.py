@@ -162,7 +162,7 @@ class TestCLIVersion(unittest.TestCase):
     def test_version(self):
         result = self.runner.invoke(cli, ["version"])
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("1.0.0", result.output)
+        self.assertIn("1.0.1", result.output)
         self.assertIn("104", result.output)
 
 

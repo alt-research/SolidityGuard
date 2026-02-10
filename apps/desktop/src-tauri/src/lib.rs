@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Serialize)]
@@ -25,7 +25,10 @@ pub struct Finding {
     pub file: String,
     pub line: u32,
     pub tool: String,
-    pub recommendation: String,
+    #[serde(alias = "recommendation")]
+    pub remediation: String,
+    #[serde(default)]
+    pub category: String,
     #[serde(default)]
     pub code_snippet: String,
     #[serde(default)]
@@ -43,6 +46,39 @@ pub struct AuditResult {
     pub summary: HashMap<String, u32>,
     pub tools_used: Vec<String>,
     pub timestamp: String,
+}
+
+/// Intermediate struct matching Python scanner's JSON output format.
+#[derive(Debug, Deserialize)]
+struct ScannerOutput {
+    #[allow(dead_code)]
+    project: String,
+    timestamp: String,
+    tools_used: Vec<String>,
+    summary: HashMap<String, serde_json::Value>,
+    security_score: u32,
+    findings: Vec<Finding>,
+}
+
+impl ScannerOutput {
+    fn into_audit_result(self, audit_id: &str) -> AuditResult {
+        let summary = self
+            .summary
+            .iter()
+            .filter_map(|(k, v)| v.as_u64().map(|n| (k.clone(), n as u32)))
+            .collect();
+        AuditResult {
+            id: audit_id.to_string(),
+            status: "completed".to_string(),
+            phase: "complete".to_string(),
+            progress: 100,
+            security_score: self.security_score,
+            findings: self.findings,
+            summary,
+            tools_used: self.tools_used,
+            timestamp: self.timestamp,
+        }
+    }
 }
 
 pub struct AuditStore(Mutex<HashMap<String, AuditResult>>);
@@ -77,11 +113,12 @@ fn check_tools() -> Result<ToolStatus, String> {
 }
 
 /// Run a local audit scan on a directory using available tools.
-/// Priority: Python scanner > local tools (slither/aderyn) > Docker fallback
+/// Priority: Docker > solidityguard CLI > Python scanner > local tools
 #[tauri::command]
 async fn run_local_scan(
     path: String,
     tools: Vec<String>,
+    app: tauri::AppHandle,
     store: State<'_, AuditStore>,
 ) -> Result<AuditResult, String> {
     let scan_path = PathBuf::from(&path);
@@ -91,53 +128,95 @@ async fn run_local_scan(
 
     let audit_id = uuid::Uuid::new_v4().to_string();
 
-    // Try to find solidity_guard.py relative to the app bundle or in known locations
-    let scanner_script = find_scanner_script();
+    // Map frontend tool names to scanner tool names
+    let scanner_tools: Vec<String> = tools
+        .iter()
+        .map(|t| match t.as_str() {
+            "pattern" => "patterns".to_string(),
+            other => other.to_string(),
+        })
+        .collect();
+    let tools_arg = scanner_tools.join(",");
 
-    let result = if let Some(script) = scanner_script {
-        // Run the Python scanner
-        let output = Command::new("python3")
+    // Temp file for JSON output
+    let temp_output = std::env::temp_dir().join(format!("solidityguard_{}.json", audit_id));
+
+    // 1. Try Docker first (most reliable — has full CLI + all tools)
+    if is_tool_available("docker") {
+        if let Ok(result) = run_docker_scan(&audit_id, &path, &tools) {
+            if !result.findings.is_empty() || result.tools_used.len() > 1 {
+                store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+                return Ok(result);
+            }
+        }
+    }
+
+    // 2. Try solidityguard CLI (pip-installed)
+    if is_tool_available("solidityguard") {
+        if let Ok(_output) = Command::new("solidityguard")
+            .arg("audit")
+            .arg(&path)
+            .arg("--quick")
+            .arg("-o")
+            .arg(temp_output.to_str().unwrap())
+            .output()
+        {
+            if let Some(result) = try_parse_output_file(&temp_output, &audit_id) {
+                let _ = std::fs::remove_file(&temp_output);
+                store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+                return Ok(result);
+            }
+        }
+    }
+
+    // 3. Try Python scanner script (bundled or local)
+    let scanner_script = find_scanner_script(&app);
+    if let Some(script) = scanner_script {
+        if let Ok(output) = Command::new("python3")
             .arg(&script)
-            .arg("scan")
-            .arg("--path")
             .arg(&path)
             .arg("--tools")
-            .arg(tools.join(","))
-            .arg("--json")
+            .arg(&tools_arg)
+            .arg("--output")
+            .arg("json")
+            .arg("-f")
+            .arg(temp_output.to_str().unwrap())
             .output()
-            .map_err(|e| format!("Failed to run scanner: {}", e))?;
-
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            serde_json::from_str::<AuditResult>(&stdout)
-                .unwrap_or_else(|_| make_fallback_result(&audit_id))
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            // Still try to run slither/aderyn directly
-            run_tool_scan(&audit_id, &path, &tools, &stderr)?
+        {
+            if let Some(result) = try_parse_output_file(&temp_output, &audit_id) {
+                let _ = std::fs::remove_file(&temp_output);
+                store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+                return Ok(result);
+            }
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if let Some(result) = try_parse_json_from_mixed_output(&stdout, &audit_id) {
+                    let _ = std::fs::remove_file(&temp_output);
+                    store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+                    return Ok(result);
+                }
+            }
         }
-    } else if has_any_local_tool(&tools) {
-        // No Python scanner — run tools directly
-        run_tool_scan(&audit_id, &path, &tools, "Scanner script not found")?
-    } else if is_tool_available("docker") {
-        // No local tools — try Docker
-        run_docker_scan(&audit_id, &path, &tools)?
-    } else {
-        return Err(
-            "No scanning tools found. Install slither (pip install slither-analyzer), \
-             aderyn (cyfrinup), or Docker to scan contracts."
-                .to_string(),
-        );
-    };
+    }
 
-    let mut audit = result;
-    audit.id = audit_id.clone();
-    audit.status = "completed".to_string();
+    // 4. Try local tools directly (slither/aderyn)
+    if has_any_local_tool(&tools) {
+        let result = run_tool_scan(&audit_id, &path, &tools, "No scanner available")?;
+        if !result.findings.is_empty() || has_real_tools_available(&tools) {
+            store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+            return Ok(result);
+        }
+    }
 
-    // Store the result
-    store.0.lock().unwrap().insert(audit_id, audit.clone());
-
-    Ok(audit)
+    // Nothing worked — return helpful error
+    Err(
+        "No scanning tools available. Install one of:\n\
+         • Docker (recommended): docker build -t solidityguard .\n\
+         • pip install solidityguard\n\
+         • pip install slither-analyzer\n\
+         See https://github.com/alt-research/solidity-audit for setup."
+            .to_string(),
+    )
 }
 
 /// Get a stored audit result.
@@ -177,12 +256,16 @@ fn run_slither(path: String) -> Result<String, String> {
             .map_err(|e| format!("Failed to run slither: {}", e))?;
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else if is_tool_available("docker") {
+        let abs_path = std::fs::canonicalize(&path)
+            .map_err(|e| format!("Failed to resolve path: {}", e))?
+            .to_string_lossy()
+            .to_string();
         let output = Command::new("docker")
             .args([
                 "run",
                 "--rm",
                 "-v",
-                &format!("{}:/src", path),
+                &format!("{}:/src", abs_path),
                 "trailofbits/eth-security-toolbox",
                 "slither",
                 "/src",
@@ -219,6 +302,17 @@ fn is_tool_available(tool: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Check if any real external tools (not just "pattern") are available.
+fn has_real_tools_available(tools: &[String]) -> bool {
+    tools.iter().any(|t| match t.as_str() {
+        "slither" => is_tool_available("slither"),
+        "aderyn" => is_tool_available("aderyn"),
+        "mythril" | "myth" => is_tool_available("myth"),
+        "forge" | "foundry" => is_tool_available("forge"),
+        _ => false,
+    })
+}
+
 fn has_any_local_tool(tools: &[String]) -> bool {
     if tools.is_empty() {
         return is_tool_available("slither") || is_tool_available("aderyn");
@@ -228,30 +322,73 @@ fn has_any_local_tool(tools: &[String]) -> bool {
         "aderyn" => is_tool_available("aderyn"),
         "mythril" | "myth" => is_tool_available("myth"),
         "forge" | "foundry" => is_tool_available("forge"),
-        "pattern" => true, // pattern scanner is built-in
         _ => false,
     })
 }
 
-fn find_scanner_script() -> Option<String> {
+fn find_scanner_script(app: &tauri::AppHandle) -> Option<String> {
+    // 1. Check Tauri bundled resources
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join("solidity_guard.py");
+        if bundled.exists() {
+            return Some(bundled.to_string_lossy().to_string());
+        }
+    }
+
+    // 2. Check common locations
     let candidates = [
-        // Relative to current dir
-        ".claude/skills/solidity-guard/scripts/solidity_guard.py",
+        // Relative to current dir (dev mode)
+        ".claude/skills/solidity-guard/scripts/solidity_guard.py".to_string(),
         // Home directory
-        &format!(
+        format!(
             "{}/.claude/skills/solidity-guard/scripts/solidity_guard.py",
             std::env::var("HOME").unwrap_or_default()
         ),
-        // Installed via pip
-        "solidity_guard",
+        // Docker path
+        "/app/scripts/solidity_guard.py".to_string(),
     ];
 
     for candidate in &candidates {
         if PathBuf::from(candidate).exists() {
-            return Some(candidate.to_string());
+            return Some(candidate.clone());
         }
     }
     None
+}
+
+/// Try to parse a JSON output file from the scanner.
+fn try_parse_output_file(path: &PathBuf, audit_id: &str) -> Option<AuditResult> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let parsed: ScannerOutput = serde_json::from_str(&content).ok()?;
+    Some(parsed.into_audit_result(audit_id))
+}
+
+/// Try to extract JSON from mixed text+JSON output (scanner prints text before JSON).
+fn try_parse_json_from_mixed_output(output: &str, audit_id: &str) -> Option<AuditResult> {
+    // Find the last top-level `{` that starts a JSON object
+    let mut brace_depth = 0;
+    let mut json_start = None;
+    for (i, ch) in output.char_indices().rev() {
+        match ch {
+            '}' => {
+                if brace_depth == 0 {
+                    // This is the end of the outermost JSON
+                }
+                brace_depth += 1;
+            }
+            '{' => {
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    json_start = Some(i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let start = json_start?;
+    let parsed: ScannerOutput = serde_json::from_str(&output[start..]).ok()?;
+    Some(parsed.into_audit_result(audit_id))
 }
 
 /// Run scan using locally installed tools (slither, aderyn).
@@ -286,20 +423,49 @@ fn run_tool_scan(
     Ok(build_audit_result(audit_id, findings, tools_used))
 }
 
-/// Run scan using Docker (trailofbits/eth-security-toolbox) when no local tools available.
+/// Run scan using Docker. Tries solidityguard image first, then eth-security-toolbox.
 fn run_docker_scan(
     audit_id: &str,
     path: &str,
     _tools: &[String],
 ) -> Result<AuditResult, String> {
-    let mut findings = Vec::new();
-    let mut tools_used = vec!["docker".to_string()];
-
-    // Run slither via Docker
     let abs_path = std::fs::canonicalize(path)
         .map_err(|e| format!("Failed to resolve path: {}", e))?
         .to_string_lossy()
         .to_string();
+
+    // 1. Try solidityguard Docker image (has full CLI + pattern scanner)
+    if docker_image_exists("solidityguard") {
+        let temp_output = std::env::temp_dir().join(format!("solidityguard_docker_{}.json", audit_id));
+        let output = Command::new("docker")
+            .args([
+                "run",
+                "--rm",
+                "-v",
+                &format!("{}:/src", abs_path),
+                "-v",
+                &format!("{}:/output", std::env::temp_dir().to_string_lossy()),
+                "solidityguard",
+                "audit",
+                "/src",
+                "--quick",
+                "-o",
+                &format!("/output/solidityguard_docker_{}.json", audit_id),
+            ])
+            .output();
+
+        if let Ok(_cmd) = output {
+            if let Some(result) = try_parse_output_file(&temp_output, audit_id) {
+                let _ = std::fs::remove_file(&temp_output);
+                return Ok(result);
+            }
+        }
+        let _ = std::fs::remove_file(&temp_output);
+    }
+
+    // 2. Fallback: eth-security-toolbox (slither only)
+    let mut findings = Vec::new();
+    let tools_used = vec!["docker".to_string(), "slither".to_string()];
 
     let output = Command::new("docker")
         .args([
@@ -318,9 +484,17 @@ fn run_docker_scan(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     parse_slither_output(&stdout, &mut findings);
-    tools_used.push("slither".to_string());
 
     Ok(build_audit_result(audit_id, findings, tools_used))
+}
+
+/// Check if a Docker image exists locally.
+fn docker_image_exists(image: &str) -> bool {
+    Command::new("docker")
+        .args(["image", "inspect", image])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }
 
 /// Parse slither JSON output and append findings.
@@ -329,24 +503,38 @@ fn parse_slither_output(stdout: &str, findings: &mut Vec<Finding>) {
         if let Some(detectors) = json.get("results").and_then(|r| r.get("detectors")) {
             if let Some(arr) = detectors.as_array() {
                 for det in arr {
-                    let severity = det
+                    let impact = det
                         .get("impact")
                         .and_then(|v| v.as_str())
-                        .unwrap_or("Medium")
-                        .to_uppercase();
+                        .unwrap_or("Medium");
+                    let confidence_str = det
+                        .get("confidence")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Medium");
+                    // Map slither impact to severity (slither uses High/Medium/Low/Informational)
+                    let severity = match impact.to_lowercase().as_str() {
+                        "high" if confidence_str.to_lowercase() == "high" => "CRITICAL".to_string(),
+                        "high" => "HIGH".to_string(),
+                        "medium" => "MEDIUM".to_string(),
+                        "low" => "LOW".to_string(),
+                        "informational" => "INFO".to_string(),
+                        _ => impact.to_uppercase(),
+                    };
+                    let confidence = match confidence_str.to_lowercase().as_str() {
+                        "high" => 0.85,
+                        "medium" => 0.70,
+                        "low" => 0.55,
+                        _ => 0.60,
+                    };
+                    let check = det
+                        .get("check")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
                     findings.push(Finding {
-                        id: det
-                            .get("check")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown")
-                            .to_string(),
-                        title: det
-                            .get("check")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("Unknown")
-                            .to_string(),
+                        id: check.to_string(),
+                        title: check.replace('-', " ").to_string(),
                         severity,
-                        confidence: 0.8,
+                        confidence,
                         description: det
                             .get("description")
                             .and_then(|v| v.as_str())
@@ -376,7 +564,8 @@ fn parse_slither_output(stdout: &str, findings: &mut Vec<Finding>) {
                             .and_then(|v| v.as_u64())
                             .unwrap_or(0) as u32,
                         tool: "slither".to_string(),
-                        recommendation: "Review and fix the detected issue.".to_string(),
+                        category: "Security".to_string(),
+                        remediation: "Review and fix the detected issue.".to_string(),
                         code_snippet: String::new(),
                         swc: String::new(),
                     });
@@ -387,11 +576,15 @@ fn parse_slither_output(stdout: &str, findings: &mut Vec<Finding>) {
 }
 
 /// Build an AuditResult from findings and tools.
-fn build_audit_result(audit_id: &str, findings: Vec<Finding>, tools_used: Vec<String>) -> AuditResult {
+fn build_audit_result(
+    audit_id: &str,
+    findings: Vec<Finding>,
+    tools_used: Vec<String>,
+) -> AuditResult {
     let total = findings.len() as u32;
     let critical = findings
         .iter()
-        .filter(|f| f.severity == "CRITICAL" || f.severity == "HIGH")
+        .filter(|f| f.severity == "CRITICAL")
         .count() as u32;
     let high = findings
         .iter()
@@ -403,10 +596,10 @@ fn build_audit_result(audit_id: &str, findings: Vec<Finding>, tools_used: Vec<St
         .count() as u32;
     let low = findings
         .iter()
-        .filter(|f| f.severity == "LOW" || f.severity == "INFORMATIONAL")
+        .filter(|f| f.severity == "LOW" || f.severity == "INFO")
         .count() as u32;
 
-    let score = 100u32.saturating_sub(critical * 15 + high * 8 + medium * 3 + low);
+    let score = 100u32.saturating_sub(critical * 20 + high * 10 + medium * 3 + low);
 
     let mut summary = HashMap::new();
     summary.insert("total".to_string(), total);
@@ -426,10 +619,6 @@ fn build_audit_result(audit_id: &str, findings: Vec<Finding>, tools_used: Vec<St
         tools_used,
         timestamp: chrono::Utc::now().to_rfc3339(),
     }
-}
-
-fn make_fallback_result(audit_id: &str) -> AuditResult {
-    build_audit_result(audit_id, Vec::new(), vec!["pattern".to_string()])
 }
 
 pub fn run() {

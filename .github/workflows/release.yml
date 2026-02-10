@@ -120,9 +120,9 @@ jobs:
           name: solidityguard-linux-appimage
           path: apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
 
-  # ── Desktop: macOS ─────────────────────────────────────────────────
+  # ── Desktop: macOS (signed + notarized) ────────────────────────────
   build-macos:
-    name: macOS (dmg)
+    name: macOS (dmg, signed)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,17 +140,60 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
 
+      - name: Import Apple certificate
+        if: env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          CERT_PATH=$RUNNER_TEMP/certificate.p12
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # Clean up certificate file
+          rm -f "$CERT_PATH"
+
       - name: Build web frontend
         run: |
           cd apps/web/frontend
           npm ci
           npm run build
 
-      - name: Build desktop app
+      - name: Build desktop app (with signing)
+        env:
+          # Apple code signing — Tauri reads these automatically
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # Apple notarization
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd apps/desktop
           npm ci
           npm run tauri:build
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi
 
       - name: Upload dmg
         uses: actions/upload-artifact@v4
@@ -158,9 +201,9 @@ jobs:
           name: solidityguard-macos-dmg
           path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
 
-  # ── Desktop: Windows ───────────────────────────────────────────────
+  # ── Desktop: Windows (signed) ──────────────────────────────────────
   build-windows:
-    name: Windows (msi + exe)
+    name: Windows (msi + exe, signed)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -185,10 +228,39 @@ jobs:
           npm run build
 
       - name: Build desktop app
+        env:
+          # Windows code signing — Tauri reads these automatically
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           cd apps/desktop
           npm ci
           npm run tauri:build
+
+      - name: Sign Windows binaries
+        if: env.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          $cert = [System.Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [System.IO.File]::WriteAllBytes($certPath, $cert)
+
+          # Sign MSI
+          Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/msi/*.msi" | ForEach-Object {
+            & signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+              /t http://timestamp.digicert.com /fd SHA256 $_.FullName
+          }
+
+          # Sign EXE
+          Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis/*.exe" | ForEach-Object {
+            & signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+              /t http://timestamp.digicert.com /fd SHA256 $_.FullName
+          }
+
+          Remove-Item $certPath -Force
 
       - name: Upload msi
         uses: actions/upload-artifact@v4
@@ -228,7 +300,7 @@ jobs:
           body: |
             ## SolidityGuard ${{ github.ref_name }}
 
-            AI-powered smart contract security audit tool with **104 vulnerability patterns**, **8 analysis tools**, **multi-agent team architecture**, and **100% detection rate** on DeFiVulnLabs + Paradigm CTF benchmarks.
+            Smart contract security audit tool with **104 vulnerability patterns**, **8 analysis tools**, **multi-agent team architecture**, and **100% detection rate** on DeFiVulnLabs + Paradigm CTF benchmarks.
 
             ---
 
