@@ -147,7 +147,7 @@ export const api = {
         },
         findings: r.findings,
         tools_used: r.tools_used,
-        report_markdown: `# SolidityGuard Audit Report\n\nScore: ${r.security_score}/100\nFindings: ${r.summary.total || 0}\nTools: ${r.tools_used.join(', ')}`,
+        report_markdown: generateReportMarkdown(r),
         timestamp: r.timestamp,
       }) as AuditReport);
     }
@@ -187,7 +187,7 @@ export const api = {
   getReportMarkdown(id: string): Promise<{ markdown: string; score: number }> {
     if (isTauri) {
       return tauriInvoke<TauriAuditResult>('get_audit', { id }).then((r) => ({
-        markdown: `# SolidityGuard Audit Report\n\nScore: ${r.security_score}/100\nFindings: ${r.summary.total || 0}\nTools: ${r.tools_used.join(', ')}`,
+        markdown: generateReportMarkdown(r),
         score: r.security_score,
       }));
     }
@@ -196,6 +196,127 @@ export const api = {
 };
 
 export { ApiError, isTauri };
+
+/** Generate a full professional markdown audit report from scan results. */
+function generateReportMarkdown(r: TauriAuditResult): string {
+  const date = new Date(r.timestamp).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  const critical = r.summary.critical || 0;
+  const high = r.summary.high || 0;
+  const medium = r.summary.medium || 0;
+  const low = r.summary.low || 0;
+  const total = r.summary.total || r.findings.length;
+  const score = r.security_score;
+
+  const riskLevel = score >= 90 ? 'Low' : score >= 70 ? 'Medium' : score >= 50 ? 'High' : 'Critical';
+
+  const lines: string[] = [];
+  lines.push('# SolidityGuard Security Audit Report');
+  lines.push('');
+  lines.push(`**Date:** ${date}`);
+  lines.push(`**Tools:** ${r.tools_used.join(', ')}`);
+  lines.push(`**Security Score:** ${score}/100 (${riskLevel} Risk)`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  // Executive Summary
+  lines.push('## Executive Summary');
+  lines.push('');
+  if (total === 0) {
+    lines.push('No security issues were identified during this audit. The contracts follow security best practices.');
+  } else {
+    lines.push(`This audit identified **${total} findings** across the scanned contracts:`);
+    lines.push('');
+    if (critical > 0) lines.push(`- **${critical} Critical** \u2014 immediate action required`);
+    if (high > 0) lines.push(`- **${high} High** \u2014 should be fixed before deployment`);
+    if (medium > 0) lines.push(`- **${medium} Medium** \u2014 recommended to address`);
+    if (low > 0) lines.push(`- **${low} Low/Informational** \u2014 best practice improvements`);
+  }
+  lines.push('');
+
+  // Severity Distribution
+  lines.push('## Severity Distribution');
+  lines.push('');
+  lines.push('| Severity | Count |');
+  lines.push('|----------|-------|');
+  lines.push(`| CRITICAL | ${critical} |`);
+  lines.push(`| HIGH | ${high} |`);
+  lines.push(`| MEDIUM | ${medium} |`);
+  lines.push(`| LOW | ${low} |`);
+  lines.push(`| **Total** | **${total}** |`);
+  lines.push('');
+
+  // Findings
+  if (r.findings.length > 0) {
+    lines.push('## Findings');
+    lines.push('');
+
+    // Summary table
+    lines.push('| # | ID | Title | Severity | File |');
+    lines.push('|---|-----|-------|----------|------|');
+    r.findings.forEach((f, i) => {
+      const file = f.file ? `\`${f.file}:${f.line}\`` : '\u2014';
+      lines.push(`| ${i + 1} | ${f.id} | ${f.title} | ${f.severity} | ${file} |`);
+    });
+    lines.push('');
+
+    // Detailed findings
+    lines.push('---');
+    lines.push('');
+    lines.push('## Detailed Findings');
+    lines.push('');
+
+    r.findings.forEach((f, i) => {
+      lines.push(`### ${i + 1}. ${f.title}`);
+      lines.push('');
+      lines.push(`**ID:** ${f.id}`);
+      lines.push(`**Severity:** ${f.severity}`);
+      lines.push(`**Confidence:** ${Math.round(f.confidence * 100)}%`);
+      if (f.file) lines.push(`**Location:** \`${f.file}:${f.line}\``);
+      if (f.tool) lines.push(`**Tool:** ${f.tool}`);
+      if (f.category) lines.push(`**Category:** ${f.category}`);
+      if (f.swc) lines.push(`**SWC:** ${f.swc}`);
+      lines.push('');
+
+      if (f.description) {
+        lines.push('**Description:**');
+        lines.push('');
+        lines.push(f.description);
+        lines.push('');
+      }
+
+      if (f.code_snippet) {
+        lines.push('**Vulnerable Code:**');
+        lines.push('');
+        lines.push('```solidity');
+        lines.push(f.code_snippet);
+        lines.push('```');
+        lines.push('');
+      }
+
+      if (f.remediation) {
+        lines.push('**Remediation:**');
+        lines.push('');
+        lines.push(f.remediation);
+        lines.push('');
+      }
+
+      lines.push('---');
+      lines.push('');
+    });
+  }
+
+  // Disclaimer
+  lines.push('## Disclaimer');
+  lines.push('');
+  lines.push('This report is provided for informational purposes only. While SolidityGuard employs multiple analysis tools and pattern detectors, no automated tool can guarantee the absence of all vulnerabilities. A manual expert review is recommended for production deployments.');
+  lines.push('');
+  lines.push(`*Generated by [SolidityGuard](https://github.com/alt-research/SolidityGuard) v1.0.1*`);
+
+  return lines.join('\n');
+}
 
 // All 104 vulnerability patterns for desktop/offline mode
 const ALL_PATTERNS: VulnPattern[] = [

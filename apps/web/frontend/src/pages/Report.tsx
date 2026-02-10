@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router'
-import { api } from '../services/api.ts'
+import { api, isTauri } from '../services/api.ts'
 import { Download, FileText, FileJson, FileCode, Loader2 } from 'lucide-react'
 
 function renderMarkdown(md: string): string {
@@ -86,21 +86,49 @@ export default function Report() {
     if (format === 'pdf' && id) {
       setExporting(true)
       try {
-        const BASE_URL = import.meta.env.VITE_API_URL || ''
-        const token = localStorage.getItem('solidityguard_token')
-        const res = await fetch(`${BASE_URL}/api/audit/${encodeURIComponent(id)}/report/pdf`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!res.ok) throw new Error('PDF generation failed')
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `audit-report-${id.slice(0, 8)}.pdf`
-        a.click()
-        URL.revokeObjectURL(url)
+        if (isTauri) {
+          // Desktop: open print dialog (user can "Save as PDF")
+          const printWindow = window.open('', '_blank')
+          if (printWindow) {
+            const html = renderMarkdown(markdown)
+            printWindow.document.write(`<!DOCTYPE html>
+<html><head><title>SolidityGuard Audit Report</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; font-size: 14px; line-height: 1.6; }
+  h1 { font-size: 24px; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
+  h2 { font-size: 18px; margin-top: 32px; color: #1e293b; }
+  h3 { font-size: 15px; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; }
+  th { background: #f8fafc; font-weight: 600; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+  strong { font-weight: 600; }
+  pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  @media print { body { margin: 20px; } }
+</style>
+</head><body>${html}</body></html>`)
+            printWindow.document.close()
+            setTimeout(() => { printWindow.print(); printWindow.close() }, 300)
+          }
+        } else {
+          const BASE_URL = import.meta.env.VITE_API_URL || ''
+          const token = localStorage.getItem('solidityguard_token')
+          const res = await fetch(`${BASE_URL}/api/audit/${encodeURIComponent(id)}/report/pdf`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+          if (!res.ok) throw new Error('PDF generation failed')
+          const blob = await res.blob()
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `audit-report-${id.slice(0, 8)}.pdf`
+          a.click()
+          URL.revokeObjectURL(url)
+        }
       } catch {
-        setError('PDF export failed. The server may not have weasyprint installed.')
+        setError('PDF export failed. Try exporting as Markdown instead.')
       } finally {
         setExporting(false)
       }
