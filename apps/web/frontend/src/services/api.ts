@@ -48,7 +48,7 @@ export async function selectDirectory(): Promise<string> {
 }
 
 // Tauri-specific: check which tools are installed locally
-export async function checkLocalTools(): Promise<{ slither: boolean; aderyn: boolean; mythril: boolean; forge: boolean }> {
+export async function checkLocalTools(): Promise<{ slither: boolean; aderyn: boolean; mythril: boolean; forge: boolean; python3: boolean }> {
   return tauriInvoke('check_tools');
 }
 

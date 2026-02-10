@@ -13,6 +13,7 @@ pub struct ToolStatus {
     pub mythril: bool,
     pub forge: bool,
     pub docker: bool,
+    pub python3: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,6 +110,7 @@ fn check_tools() -> Result<ToolStatus, String> {
         mythril: is_tool_available("myth"),
         forge: is_tool_available("forge"),
         docker: is_tool_available("docker"),
+        python3: find_python().is_some(),
     })
 }
 
@@ -141,19 +143,27 @@ async fn run_local_scan(
     // Temp file for JSON output
     let temp_output = std::env::temp_dir().join(format!("solidityguard_{}.json", audit_id));
 
+    // Collect errors from each attempt for diagnostics
+    let mut errors: Vec<String> = Vec::new();
+
     // 1. Try Docker first (most reliable — has full CLI + all tools)
     if is_tool_available("docker") {
-        if let Ok(result) = run_docker_scan(&audit_id, &path, &tools) {
-            if !result.findings.is_empty() || result.tools_used.len() > 1 {
-                store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+        match run_docker_scan(&audit_id, &path) {
+            Ok(result) => {
+                store
+                    .0
+                    .lock()
+                    .unwrap()
+                    .insert(audit_id.clone(), result.clone());
                 return Ok(result);
             }
+            Err(e) => errors.push(format!("Docker: {}", e)),
         }
     }
 
     // 2. Try solidityguard CLI (pip-installed)
     if is_tool_available("solidityguard") {
-        if let Ok(_output) = Command::new("solidityguard")
+        match Command::new("solidityguard")
             .arg("audit")
             .arg(&path)
             .arg("--quick")
@@ -161,19 +171,34 @@ async fn run_local_scan(
             .arg(temp_output.to_str().unwrap())
             .output()
         {
-            if let Some(result) = try_parse_output_file(&temp_output, &audit_id) {
-                let _ = std::fs::remove_file(&temp_output);
-                store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
-                return Ok(result);
+            Ok(output) => {
+                if let Some(result) = try_parse_output_file(&temp_output, &audit_id) {
+                    let _ = std::fs::remove_file(&temp_output);
+                    store
+                        .0
+                        .lock()
+                        .unwrap()
+                        .insert(audit_id.clone(), result.clone());
+                    return Ok(result);
+                }
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                errors.push(format!(
+                    "solidityguard CLI: exit={}, stderr={}",
+                    output.status,
+                    stderr.chars().take(200).collect::<String>()
+                ));
             }
+            Err(e) => errors.push(format!("solidityguard CLI: {}", e)),
         }
+        let _ = std::fs::remove_file(&temp_output);
     }
 
     // 3. Try Python scanner script (bundled or local)
+    let python = find_python();
     let scanner_script = find_scanner_script(&app);
-    if let Some(script) = scanner_script {
-        if let Ok(output) = Command::new("python3")
-            .arg(&script)
+    if let (Some(py), Some(script)) = (&python, &scanner_script) {
+        match Command::new(py)
+            .arg(script)
             .arg(&path)
             .arg("--tools")
             .arg(&tools_arg)
@@ -183,40 +208,76 @@ async fn run_local_scan(
             .arg(temp_output.to_str().unwrap())
             .output()
         {
-            if let Some(result) = try_parse_output_file(&temp_output, &audit_id) {
-                let _ = std::fs::remove_file(&temp_output);
-                store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
-                return Ok(result);
-            }
-            if output.status.success() {
+            Ok(output) => {
+                // Try output file first
+                if let Some(result) = try_parse_output_file(&temp_output, &audit_id) {
+                    let _ = std::fs::remove_file(&temp_output);
+                    store
+                        .0
+                        .lock()
+                        .unwrap()
+                        .insert(audit_id.clone(), result.clone());
+                    return Ok(result);
+                }
+                // Try parsing stdout (scanner may print JSON to stdout)
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 if let Some(result) = try_parse_json_from_mixed_output(&stdout, &audit_id) {
                     let _ = std::fs::remove_file(&temp_output);
-                    store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
+                    store
+                        .0
+                        .lock()
+                        .unwrap()
+                        .insert(audit_id.clone(), result.clone());
                     return Ok(result);
                 }
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                errors.push(format!(
+                    "Python scanner: exit={}, stderr={}",
+                    output.status,
+                    stderr.chars().take(200).collect::<String>()
+                ));
             }
+            Err(e) => errors.push(format!("Python scanner: {}", e)),
+        }
+        let _ = std::fs::remove_file(&temp_output);
+    } else {
+        if python.is_none() {
+            errors.push("Python3 not found in PATH".to_string());
+        }
+        if scanner_script.is_none() {
+            errors.push("Scanner script not found".to_string());
         }
     }
 
     // 4. Try local tools directly (slither/aderyn)
     if has_any_local_tool(&tools) {
-        let result = run_tool_scan(&audit_id, &path, &tools, "No scanner available")?;
-        if !result.findings.is_empty() || has_real_tools_available(&tools) {
-            store.0.lock().unwrap().insert(audit_id.clone(), result.clone());
-            return Ok(result);
+        match run_tool_scan(&audit_id, &path, &tools) {
+            Ok(result) => {
+                store
+                    .0
+                    .lock()
+                    .unwrap()
+                    .insert(audit_id.clone(), result.clone());
+                return Ok(result);
+            }
+            Err(e) => errors.push(format!("Local tools: {}", e)),
         }
     }
 
-    // Nothing worked — return helpful error
-    Err(
-        "No scanning tools available. Install one of:\n\
-         • Docker (recommended): docker build -t solidityguard .\n\
-         • pip install solidityguard\n\
-         • pip install slither-analyzer\n\
-         See https://github.com/alt-research/solidity-audit for setup."
-            .to_string(),
-    )
+    // Nothing worked — return helpful error with diagnostics
+    let diag = if errors.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nDiagnostics:\n{}", errors.join("\n"))
+    };
+    Err(format!(
+        "No scanning tools could complete the audit. Install one of:\n\
+         \u{2022} Docker (recommended): docker build -t solidityguard .\n\
+         \u{2022} Python 3: brew install python3 (for built-in pattern scanner)\n\
+         \u{2022} pip install slither-analyzer\n\
+         See https://github.com/alt-research/SolidityGuard for setup.{}",
+        diag
+    ))
 }
 
 /// Get a stored audit result.
@@ -294,23 +355,85 @@ fn run_aderyn(path: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+/// Find a tool by checking common PATH locations (macOS .app bundles have minimal PATH).
 fn is_tool_available(tool: &str) -> bool {
-    Command::new("which")
+    // Try direct execution first (works if in PATH)
+    if Command::new("which")
         .arg(tool)
         .output()
-        .map(|output| output.status.success())
+        .map(|o| o.status.success())
         .unwrap_or(false)
+    {
+        return true;
+    }
+
+    // On macOS .app bundles, PATH is minimal — check common locations
+    let extra_paths = [
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        "/usr/bin",
+        "/opt/local/bin",
+    ];
+    for dir in &extra_paths {
+        if PathBuf::from(dir).join(tool).exists() {
+            return true;
+        }
+    }
+
+    // Check ~/.local/bin (pip --user installs)
+    if let Ok(home) = std::env::var("HOME") {
+        if PathBuf::from(&home)
+            .join(".local/bin")
+            .join(tool)
+            .exists()
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
-/// Check if any real external tools (not just "pattern") are available.
-fn has_real_tools_available(tools: &[String]) -> bool {
-    tools.iter().any(|t| match t.as_str() {
-        "slither" => is_tool_available("slither"),
-        "aderyn" => is_tool_available("aderyn"),
-        "mythril" | "myth" => is_tool_available("myth"),
-        "forge" | "foundry" => is_tool_available("forge"),
-        _ => false,
-    })
+/// Find the full path to a tool, checking common locations on macOS.
+fn find_tool_path(tool: &str) -> Option<String> {
+    // Try which first
+    if let Ok(output) = Command::new("which").arg(tool).output() {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Some(path);
+            }
+        }
+    }
+
+    // Check common locations
+    let extra_paths = [
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        "/usr/bin",
+        "/opt/local/bin",
+    ];
+    for dir in &extra_paths {
+        let p = PathBuf::from(dir).join(tool);
+        if p.exists() {
+            return Some(p.to_string_lossy().to_string());
+        }
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        let p = PathBuf::from(&home).join(".local/bin").join(tool);
+        if p.exists() {
+            return Some(p.to_string_lossy().to_string());
+        }
+    }
+
+    None
+}
+
+/// Find python3 binary path.
+fn find_python() -> Option<String> {
+    // python3 first, then python
+    find_tool_path("python3").or_else(|| find_tool_path("python"))
 }
 
 fn has_any_local_tool(tools: &[String]) -> bool {
@@ -336,17 +459,20 @@ fn find_scanner_script(app: &tauri::AppHandle) -> Option<String> {
     }
 
     // 2. Check common locations
-    let candidates = [
+    let mut candidates = vec![
         // Relative to current dir (dev mode)
         ".claude/skills/solidity-guard/scripts/solidity_guard.py".to_string(),
-        // Home directory
-        format!(
-            "{}/.claude/skills/solidity-guard/scripts/solidity_guard.py",
-            std::env::var("HOME").unwrap_or_default()
-        ),
         // Docker path
         "/app/scripts/solidity_guard.py".to_string(),
     ];
+
+    // Home directory
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(format!(
+            "{}/.claude/skills/solidity-guard/scripts/solidity_guard.py",
+            home
+        ));
+    }
 
     for candidate in &candidates {
         if PathBuf::from(candidate).exists() {
@@ -371,9 +497,6 @@ fn try_parse_json_from_mixed_output(output: &str, audit_id: &str) -> Option<Audi
     for (i, ch) in output.char_indices().rev() {
         match ch {
             '}' => {
-                if brace_depth == 0 {
-                    // This is the end of the outermost JSON
-                }
                 brace_depth += 1;
             }
             '{' => {
@@ -396,7 +519,6 @@ fn run_tool_scan(
     audit_id: &str,
     path: &str,
     tools: &[String],
-    _fallback_msg: &str,
 ) -> Result<AuditResult, String> {
     let mut findings = Vec::new();
     let mut tools_used = Vec::new();
@@ -404,8 +526,9 @@ fn run_tool_scan(
     // Run slither if requested and available
     if (tools.contains(&"slither".to_string()) || tools.is_empty()) && is_tool_available("slither")
     {
+        let slither = find_tool_path("slither").unwrap_or_else(|| "slither".to_string());
         tools_used.push("slither".to_string());
-        if let Ok(output) = Command::new("slither")
+        if let Ok(output) = Command::new(&slither)
             .arg(path)
             .arg("--json")
             .arg("-")
@@ -420,24 +543,30 @@ fn run_tool_scan(
         tools_used.push("aderyn".to_string());
     }
 
+    if tools_used.is_empty() {
+        return Err("No local tools (slither, aderyn) found".to_string());
+    }
+
     Ok(build_audit_result(audit_id, findings, tools_used))
 }
 
-/// Run scan using Docker. Tries solidityguard image first, then eth-security-toolbox.
+/// Run scan using Docker. Only uses locally available images (no pull).
 fn run_docker_scan(
     audit_id: &str,
     path: &str,
-    _tools: &[String],
 ) -> Result<AuditResult, String> {
     let abs_path = std::fs::canonicalize(path)
         .map_err(|e| format!("Failed to resolve path: {}", e))?
         .to_string_lossy()
         .to_string();
 
+    let docker = find_tool_path("docker").unwrap_or_else(|| "docker".to_string());
+
     // 1. Try solidityguard Docker image (has full CLI + pattern scanner)
-    if docker_image_exists("solidityguard") {
-        let temp_output = std::env::temp_dir().join(format!("solidityguard_docker_{}.json", audit_id));
-        let output = Command::new("docker")
+    if docker_image_exists(&docker, "solidityguard") {
+        let temp_output =
+            std::env::temp_dir().join(format!("solidityguard_docker_{}.json", audit_id));
+        let output = Command::new(&docker)
             .args([
                 "run",
                 "--rm",
@@ -446,54 +575,77 @@ fn run_docker_scan(
                 "-v",
                 &format!("{}:/output", std::env::temp_dir().to_string_lossy()),
                 "solidityguard",
-                "audit",
+                "python3",
+                "/app/scripts/solidity_guard.py",
                 "/src",
-                "--quick",
-                "-o",
+                "--tools",
+                "patterns",
+                "--output",
+                "json",
+                "-f",
                 &format!("/output/solidityguard_docker_{}.json", audit_id),
             ])
             .output();
 
-        if let Ok(_cmd) = output {
+        if let Ok(cmd) = output {
             if let Some(result) = try_parse_output_file(&temp_output, audit_id) {
                 let _ = std::fs::remove_file(&temp_output);
                 return Ok(result);
             }
+            // Try stdout
+            let stdout = String::from_utf8_lossy(&cmd.stdout);
+            if let Some(result) = try_parse_json_from_mixed_output(&stdout, audit_id) {
+                let _ = std::fs::remove_file(&temp_output);
+                return Ok(result);
+            }
+            let stderr = String::from_utf8_lossy(&cmd.stderr);
+            let _ = std::fs::remove_file(&temp_output);
+            return Err(format!(
+                "solidityguard image ran but produced no output. exit={}, stderr={}",
+                cmd.status,
+                stderr.chars().take(300).collect::<String>()
+            ));
         }
         let _ = std::fs::remove_file(&temp_output);
     }
 
-    // 2. Fallback: eth-security-toolbox (slither only)
-    let mut findings = Vec::new();
-    let tools_used = vec!["docker".to_string(), "slither".to_string()];
+    // 2. Try eth-security-toolbox (slither only) — only if already pulled
+    if docker_image_exists(&docker, "trailofbits/eth-security-toolbox") {
+        let mut findings = Vec::new();
+        let tools_used = vec!["docker".to_string(), "slither".to_string()];
 
-    let output = Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            "-v",
-            &format!("{}:/src", abs_path),
-            "trailofbits/eth-security-toolbox",
-            "slither",
-            "/src",
-            "--json",
-            "-",
-        ])
-        .output()
-        .map_err(|e| format!("Failed to run Docker scan: {}", e))?;
+        let output = Command::new(&docker)
+            .args([
+                "run",
+                "--rm",
+                "-v",
+                &format!("{}:/src", abs_path),
+                "trailofbits/eth-security-toolbox",
+                "slither",
+                "/src",
+                "--json",
+                "-",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to run Docker slither: {}", e))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    parse_slither_output(&stdout, &mut findings);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        parse_slither_output(&stdout, &mut findings);
 
-    Ok(build_audit_result(audit_id, findings, tools_used))
+        return Ok(build_audit_result(audit_id, findings, tools_used));
+    }
+
+    Err("No Docker images available (solidityguard or eth-security-toolbox). Build with: docker build -t solidityguard .".to_string())
 }
 
-/// Check if a Docker image exists locally.
-fn docker_image_exists(image: &str) -> bool {
-    Command::new("docker")
+/// Check if a Docker image exists locally (no pull).
+fn docker_image_exists(docker: &str, image: &str) -> bool {
+    Command::new(docker)
         .args(["image", "inspect", image])
-        .output()
-        .map(|output| output.status.success())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
         .unwrap_or(false)
 }
 
@@ -511,9 +663,10 @@ fn parse_slither_output(stdout: &str, findings: &mut Vec<Finding>) {
                         .get("confidence")
                         .and_then(|v| v.as_str())
                         .unwrap_or("Medium");
-                    // Map slither impact to severity (slither uses High/Medium/Low/Informational)
                     let severity = match impact.to_lowercase().as_str() {
-                        "high" if confidence_str.to_lowercase() == "high" => "CRITICAL".to_string(),
+                        "high" if confidence_str.to_lowercase() == "high" => {
+                            "CRITICAL".to_string()
+                        }
                         "high" => "HIGH".to_string(),
                         "medium" => "MEDIUM".to_string(),
                         "low" => "LOW".to_string(),

@@ -37,7 +37,8 @@ export default function Home() {
         navigate(`/audit/${id}`)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start audit')
+      const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to start audit'
+      setError(msg)
       setLoading(false)
     }
   }
