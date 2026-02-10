@@ -1,10 +1,15 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
+
+/// Deserialize a JSON null or missing field as an empty String.
+fn null_as_empty<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    Ok(Option::<String>::deserialize(d)?.unwrap_or_default())
+}
 
 #[derive(Serialize)]
 pub struct ToolStatus {
@@ -18,21 +23,29 @@ pub struct ToolStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Finding {
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub id: String,
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub title: String,
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub severity: String,
+    #[serde(default)]
     pub confidence: f64,
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub description: String,
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub file: String,
+    #[serde(default)]
     pub line: u32,
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub tool: String,
-    #[serde(alias = "recommendation")]
+    #[serde(default, alias = "recommendation", deserialize_with = "null_as_empty")]
     pub remediation: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub category: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub code_snippet: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_empty")]
     pub swc: String,
 }
 
