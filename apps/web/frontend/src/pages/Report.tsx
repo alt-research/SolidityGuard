@@ -87,12 +87,10 @@ export default function Report() {
       setExporting(true)
       try {
         if (isTauri) {
-          // Desktop: open print dialog (user can "Save as PDF")
-          const printWindow = window.open('', '_blank')
-          if (printWindow) {
-            const html = renderMarkdown(markdown)
-            printWindow.document.write(`<!DOCTYPE html>
-<html><head><title>SolidityGuard Audit Report</title>
+          // Desktop: write styled HTML to temp file and open in browser for print/save-as-PDF
+          const reportHtml = renderMarkdown(markdown)
+          const fullHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>SolidityGuard Audit Report</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; font-size: 14px; line-height: 1.6; }
   h1 { font-size: 24px; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
@@ -106,12 +104,14 @@ export default function Report() {
   strong { font-weight: 600; }
   pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; }
   pre code { background: none; padding: 0; }
+  li { margin: 4px 0; }
   @media print { body { margin: 20px; } }
 </style>
-</head><body>${html}</body></html>`)
-            printWindow.document.close()
-            setTimeout(() => { printWindow.print(); printWindow.close() }, 300)
-          }
+</head><body>${reportHtml}
+<script>window.onload = function() { window.print(); }</script>
+</body></html>`
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (window as any).__TAURI__.core.invoke('export_report_html', { html: fullHtml })
         } else {
           const BASE_URL = import.meta.env.VITE_API_URL || ''
           const token = localStorage.getItem('solidityguard_token')

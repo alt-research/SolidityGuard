@@ -787,6 +787,32 @@ fn build_audit_result(
     }
 }
 
+/// Write HTML report to temp file and open in default browser for printing/PDF.
+#[tauri::command]
+fn export_report_html(html: String) -> Result<String, String> {
+    let path = std::env::temp_dir().join("solidityguard-report.html");
+    std::fs::write(&path, &html)
+        .map_err(|e| format!("Failed to write report: {}", e))?;
+
+    // Open in default browser
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("open").arg(&path).spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("xdg-open").arg(&path).spawn();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("cmd")
+            .args(["/c", "start", "", &path.to_string_lossy()])
+            .spawn();
+    }
+
+    Ok(path.to_string_lossy().to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -800,6 +826,7 @@ pub fn run() {
             get_findings,
             run_slither,
             run_aderyn,
+            export_report_html,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SolidityGuard");
