@@ -14,8 +14,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Patterns-104-blue?style=flat-square" alt="104 Patterns" />
   <img src="https://img.shields.io/badge/Tools-8-blue?style=flat-square" alt="8 Tools" />
-  <img src="https://img.shields.io/badge/DeFiVulnLabs-100%25-brightgreen?style=flat-square" alt="DeFiVulnLabs 100%" />
-  <img src="https://img.shields.io/badge/Paradigm%20CTF-100%25-brightgreen?style=flat-square" alt="Paradigm CTF 100%" />
+  <img src="https://img.shields.io/badge/CTF%20Benchmark-85%2F85%20(100%25)-brightgreen?style=flat-square" alt="CTF 85/85 100%" />
+  <img src="https://img.shields.io/badge/DeFiVulnLabs-56%2F56-brightgreen?style=flat-square" alt="DeFiVulnLabs 100%" />
+  <img src="https://img.shields.io/badge/Paradigm%20CTF-24%2F24-brightgreen?style=flat-square" alt="Paradigm CTF 100%" />
+  <img src="https://img.shields.io/badge/2025%20CTFs-5%2F5-brightgreen?style=flat-square" alt="2025 CTFs 100%" />
   <img src="https://img.shields.io/badge/OWASP%202025-Aligned-orange?style=flat-square" alt="OWASP 2025" />
 </p>
 
@@ -46,7 +48,7 @@
 - **Formal Verification** — Halmos symbolic tests + Certora CVL rules
 - **Fuzz Test Generation** — Foundry invariant tests + Echidna property tests from scan findings
 - **OWASP 2025 Aligned** — covers all Smart Contract Top 10 2025 categories
-- **CTF-Validated** — 100% detection on DeFiVulnLabs (56/56) + Paradigm CTF (24/24 static)
+- **CTF-Validated** — 100% detection on 85/85 challenges: DeFiVulnLabs (56/56) + Paradigm CTF (24/24) + R3CTF 2025 + HTB CA 2025 (5/5)
 
 ## Benchmark Results
 
@@ -56,7 +58,9 @@
 | **Paradigm CTF 2021** | 16 challenges | **100%** (10/10 static) |
 | **Paradigm CTF 2022** | 13 challenges | **100%** (7/7 static) |
 | **Paradigm CTF 2023** | 15 challenges | **100%** (7/7 static) |
-| **Combined** | 100 contracts | **80/80 static (100%)** |
+| **R3CTF 2025** | 2 Solidity challenges | **100%** (2/2) |
+| **HTB Cyber Apocalypse 2025** | 3 blockchain challenges | **100%** (3/3) |
+| **Combined** | 85 challenges | **85/85 (100%)** |
 
 ## Quick Start
 
@@ -264,7 +268,7 @@ Phase 7: Report & Remediation  ─► Professional report + fixed code samples
 | Script | Purpose |
 |--------|---------|
 | `solidity_guard.py` | Combined scanner orchestrator (50+ detectors) |
-| `ctf_benchmark.py` | CTF benchmark framework (DeFiVulnLabs + Paradigm CTF) |
+| `ctf_benchmark.py` | CTF benchmark framework (DeFiVulnLabs + Paradigm CTF + 2025 CTFs) |
 | `slither_runner.py` | Slither integration |
 | `report_generator.py` | Professional Markdown + PDF report |
 | `verify_findings.py` | Finding verification prompts |
