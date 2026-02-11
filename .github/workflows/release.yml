@@ -191,12 +191,27 @@ jobs:
           python-version: '3.11'
 
       - name: Build scanner binaries (macOS)
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           cd apps/desktop/pyinstaller
           pip install -r requirements-build.txt
           pyinstaller solidityguard-scanner.spec --clean
           pyinstaller solidityguard-report-gen.spec --clean
           ./dist/solidityguard-scanner --help
+          # Sign binaries so Apple notarization accepts them inside the .app
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "Signing PyInstaller binaries with Developer ID..."
+            codesign --force --options runtime --timestamp \
+              --sign "$APPLE_SIGNING_IDENTITY" dist/solidityguard-scanner
+            codesign --force --options runtime --timestamp \
+              --sign "$APPLE_SIGNING_IDENTITY" dist/solidityguard-report-gen
+            echo "Verifying signatures..."
+            codesign -dvv dist/solidityguard-scanner
+            codesign -dvv dist/solidityguard-report-gen
+          else
+            echo "No signing identity — skipping binary signing"
+          fi
           mkdir -p ../src-tauri/binaries
           cp dist/solidityguard-scanner ../src-tauri/binaries/
           cp dist/solidityguard-report-gen ../src-tauri/binaries/
