@@ -166,6 +166,9 @@ jobs:
           # Clean up certificate file
           rm -f "$CERT_PATH"
 
+      - name: Install DMG tools
+        run: brew install create-dmg
+
       - name: Build web frontend
         run: |
           cd apps/web/frontend
@@ -173,6 +176,8 @@ jobs:
           npm run build
 
       - name: Build desktop app (with signing)
+        id: tauri_build
+        continue-on-error: true
         env:
           # Apple code signing — Tauri reads these automatically
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -187,6 +192,36 @@ jobs:
           npm ci
           npm run tauri:build
 
+      - name: Create DMG fallback
+        if: steps.tauri_build.outcome == 'failure'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          APP_PATH="apps/desktop/src-tauri/target/release/bundle/macos/SolidityGuard.app"
+          DMG_DIR="apps/desktop/src-tauri/target/release/bundle/dmg"
+          mkdir -p "$DMG_DIR"
+          if [ -d "$APP_PATH" ]; then
+            echo "Creating DMG with create-dmg..."
+            create-dmg \
+              --volname "SolidityGuard" \
+              --window-pos 200 120 \
+              --window-size 600 400 \
+              --icon-size 100 \
+              --icon "SolidityGuard.app" 150 190 \
+              --app-drop-link 450 190 \
+              "$DMG_DIR/SolidityGuard_${APP_VERSION#v}_aarch64.dmg" \
+              "$APP_PATH" || \
+            hdiutil create -volname "SolidityGuard" -srcfolder "$APP_PATH" \
+              -ov -format UDZO "$DMG_DIR/SolidityGuard_${APP_VERSION#v}_aarch64.dmg"
+            # Sign the DMG
+            if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+              codesign --force --sign "$APPLE_SIGNING_IDENTITY" "$DMG_DIR"/*.dmg || true
+            fi
+          else
+            echo "::error::No .app bundle found — build failed before bundling"
+            exit 1
+          fi
+
       - name: Clean up keychain
         if: always()
         run: |
@@ -196,6 +231,7 @@ jobs:
           fi
 
       - name: Upload dmg
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: solidityguard-macos-dmg
