@@ -1,6 +1,6 @@
 {
   "name": "solidityguard-desktop",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "SolidityGuard Desktop - Tauri-based smart contract security audit tool",
   "scripts": {

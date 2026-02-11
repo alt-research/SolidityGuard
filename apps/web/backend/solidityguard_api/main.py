@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SolidityGuard API",
     description="Solidity smart contract security audit API",
-    version="1.1.0",
+    version="1.1.1",
     lifespan=lifespan,
 )
 
