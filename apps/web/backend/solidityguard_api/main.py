@@ -6,7 +6,6 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from solidityguard_api.routes import audit, auth, fuzz, patterns, tools
 from solidityguard_api.websocket import ws_manager
