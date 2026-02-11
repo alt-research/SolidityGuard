@@ -3,32 +3,193 @@ import { useParams } from 'react-router'
 import { api, isTauri } from '../services/api.ts'
 import { Download, FileText, FileJson, FileCode, Loader2 } from 'lucide-react'
 
-/** Build print-ready HTML for PDF generation (light theme, A4 styled). */
-function buildPdfHtml(md: string): string {
-  if (!md) return ''
-  let html = md
-    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-    .replace(/^---$/gm, '<hr />')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/^\| (.+) \|$/gm, (match) => {
-      const cells = match.split('|').filter(c => c.trim())
-      if (cells.every(c => /^[-:\s]+$/.test(c))) return ''
-      const isHeader = cells.some(c => c.includes('#') || c.includes('ID') || c.includes('Title') || c.includes('Severity'))
-      const tag = isHeader ? 'th' : 'td'
-      return `<tr>${cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`
-    })
-    .replace(/^- (.*$)/gm, '<li>$1</li>')
-    .replace(/^(?!<|$|\s*$)(.+)$/gm, '<p>$1</p>')
-  if (html.includes('<tr>')) {
-    html = html.replace(
-      /(<tr>[\s\S]*?<\/tr>(?:\s*<tr>[\s\S]*?<\/tr>)*)/g,
-      '<table>$1</table>'
-    )
+/** Generate a PDF from markdown using jsPDF (no canvas, no external deps). */
+async function generatePdfFromMarkdown(md: string, filename: string) {
+  const { jsPDF } = await import('jspdf')
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+  const marginL = 20, marginR = 20, marginT = 25, marginB = 20
+  const contentW = pageW - marginL - marginR
+  let y = marginT
+
+  function checkPage(needed: number) {
+    if (y + needed > pageH - marginB) {
+      doc.addPage()
+      y = marginT
+    }
   }
-  return html
+
+  function drawLine() {
+    checkPage(6)
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.3)
+    doc.line(marginL, y, pageW - marginR, y)
+    y += 4
+  }
+
+  function addText(text: string, size: number, style: string, color: [number, number, number], spacing = 1.4) {
+    doc.setFontSize(size)
+    doc.setFont('helvetica', style)
+    doc.setTextColor(...color)
+    const clean = text.replace(/\*\*/g, '').replace(/`/g, '')
+    const lines = doc.splitTextToSize(clean, contentW)
+    const lineH = size * 0.4 * spacing
+    for (const line of lines) {
+      checkPage(lineH)
+      doc.text(line, marginL, y)
+      y += lineH
+    }
+  }
+
+  // Parse and render
+  const lines = md.split('\n')
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // Skip empty lines
+    if (!line.trim()) { y += 2; i++; continue }
+
+    // H1
+    if (line.startsWith('# ') && !line.startsWith('## ')) {
+      checkPage(12)
+      addText(line.slice(2), 18, 'bold', [30, 41, 59])
+      doc.setDrawColor(79, 70, 229)
+      doc.setLineWidth(0.8)
+      doc.line(marginL, y, pageW - marginR, y)
+      y += 5
+      i++; continue
+    }
+
+    // H2
+    if (line.startsWith('## ') && !line.startsWith('### ')) {
+      checkPage(10)
+      y += 4
+      addText(line.slice(3), 14, 'bold', [30, 41, 59])
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.3)
+      doc.line(marginL, y, pageW - marginR, y)
+      y += 3
+      i++; continue
+    }
+
+    // H3
+    if (line.startsWith('### ')) {
+      checkPage(8)
+      y += 3
+      addText(line.slice(4), 11, 'bold', [51, 65, 85])
+      y += 1
+      i++; continue
+    }
+
+    // HR
+    if (line.trim() === '---') {
+      drawLine()
+      i++; continue
+    }
+
+    // Table
+    if (line.startsWith('|')) {
+      const tableRows: string[][] = []
+      while (i < lines.length && lines[i].startsWith('|')) {
+        const cells = lines[i].split('|').filter(c => c.trim()).map(c => c.trim())
+        // Skip separator row
+        if (cells.every(c => /^[-:\s]+$/.test(c))) { i++; continue }
+        tableRows.push(cells)
+        i++
+      }
+      if (tableRows.length === 0) continue
+
+      const colCount = tableRows[0].length
+      const colW = contentW / colCount
+      const cellPad = 2
+      const cellFontSize = 7.5
+      const cellLineH = 3.5
+
+      for (let r = 0; r < tableRows.length; r++) {
+        const row = tableRows[r]
+        // Calculate max lines in this row
+        doc.setFontSize(cellFontSize)
+        let maxLines = 1
+        for (let c = 0; c < row.length; c++) {
+          const cellText = (row[c] || '').replace(/`/g, '')
+          const wrapped = doc.splitTextToSize(cellText, colW - cellPad * 2)
+          maxLines = Math.max(maxLines, wrapped.length)
+        }
+        const rowH = maxLines * cellLineH + cellPad * 2
+        checkPage(rowH)
+
+        for (let c = 0; c < colCount; c++) {
+          const x = marginL + c * colW
+          // Background for header
+          if (r === 0) {
+            doc.setFillColor(248, 250, 252)
+            doc.rect(x, y, colW, rowH, 'F')
+          }
+          // Border
+          doc.setDrawColor(226, 232, 240)
+          doc.setLineWidth(0.2)
+          doc.rect(x, y, colW, rowH)
+          // Text
+          doc.setFont('helvetica', r === 0 ? 'bold' : 'normal')
+          doc.setFontSize(cellFontSize)
+          doc.setTextColor(26, 26, 26)
+          const cellText = (row[c] || '').replace(/`/g, '')
+          const wrapped = doc.splitTextToSize(cellText, colW - cellPad * 2)
+          for (let l = 0; l < wrapped.length; l++) {
+            doc.text(wrapped[l], x + cellPad, y + cellPad + cellLineH * (l + 0.7))
+          }
+        }
+        y += rowH
+      }
+      y += 3
+      continue
+    }
+
+    // List item
+    if (line.startsWith('- ')) {
+      checkPage(5)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(80, 80, 80)
+      doc.text('\u2022', marginL, y)
+      const itemLines = doc.splitTextToSize(line.slice(2).replace(/\*\*/g, '').replace(/`/g, ''), contentW - 5)
+      for (const il of itemLines) {
+        checkPage(4)
+        doc.text(il, marginL + 5, y)
+        y += 3.8
+      }
+      i++; continue
+    }
+
+    // Bold-prefixed lines (like **Date:** value)
+    if (line.startsWith('**')) {
+      checkPage(5)
+      const clean = line.replace(/\*\*/g, '').replace(/`/g, '')
+      addText(clean, 9, 'normal', [60, 60, 60])
+      y += 1
+      i++; continue
+    }
+
+    // Regular paragraph
+    addText(line, 9, 'normal', [60, 60, 60])
+    y += 1.5
+    i++
+  }
+
+  // Footer on each page
+  const totalPages = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(150, 150, 150)
+    doc.text('Generated by SolidityGuard', marginL, pageH - 10)
+    doc.text(`Page ${p} of ${totalPages}`, pageW - marginR, pageH - 10, { align: 'right' })
+  }
+
+  doc.save(filename)
 }
 
 function renderMarkdown(md: string): string {
@@ -115,53 +276,8 @@ export default function Report() {
       setExporting(true)
       try {
         if (isTauri) {
-          // Desktop: generate PDF client-side using html2pdf.js (no Python dependency)
-          const html2pdf = (await import('html2pdf.js')).default
-          const container = document.createElement('div')
-          container.innerHTML = buildPdfHtml(markdown)
-          container.style.cssText = `
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 700px; margin: 0 auto; padding: 20px; color: #1a1a1a;
-            font-size: 13px; line-height: 1.6; position: absolute; left: -9999px;
-          `
-          // Apply PDF styles to elements
-          container.querySelectorAll('h1').forEach(el => {
-            (el as HTMLElement).style.cssText = 'font-size: 22px; border-bottom: 2px solid #4f46e5; padding-bottom: 6px; margin-top: 0;'
-          })
-          container.querySelectorAll('h2').forEach(el => {
-            (el as HTMLElement).style.cssText = 'font-size: 16px; margin-top: 28px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;'
-          })
-          container.querySelectorAll('h3').forEach(el => {
-            (el as HTMLElement).style.cssText = 'font-size: 14px; margin-top: 20px; color: #334155;'
-          })
-          container.querySelectorAll('table').forEach(el => {
-            (el as HTMLElement).style.cssText = 'width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 11px;'
-          })
-          container.querySelectorAll('th, td').forEach(el => {
-            (el as HTMLElement).style.cssText = 'border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left;'
-          })
-          container.querySelectorAll('th').forEach(el => {
-            (el as HTMLElement).style.cssText += 'background: #f8fafc; font-weight: 600;'
-          })
-          container.querySelectorAll('code').forEach(el => {
-            (el as HTMLElement).style.cssText = 'background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; font-family: Menlo, Consolas, monospace;'
-          })
-          container.querySelectorAll('hr').forEach(el => {
-            (el as HTMLElement).style.cssText = 'border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;'
-          })
-          document.body.appendChild(container)
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (html2pdf() as any).set({
-            margin: [15, 15, 20, 15],
-            filename: `audit-report-${id.slice(0, 8)}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-          }).from(container).save()
-
-          document.body.removeChild(container)
+          // Desktop: generate PDF client-side using jsPDF (no external deps)
+          await generatePdfFromMarkdown(markdown, `audit-report-${id.slice(0, 8)}.pdf`)
         } else {
           const BASE_URL = import.meta.env.VITE_API_URL || ''
           const token = localStorage.getItem('solidityguard_token')
