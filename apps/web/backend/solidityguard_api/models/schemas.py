@@ -110,5 +110,5 @@ class FuzzTestResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str = "ok"
-    version: str = "1.0.1"
+    version: str = "1.1.0"
     timestamp: datetime

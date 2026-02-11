@@ -300,7 +300,7 @@ jobs:
           body: |
             ## SolidityGuard ${{ github.ref_name }}
 
-            Smart contract security audit tool with **104 vulnerability patterns**, **8 analysis tools**, **multi-agent team architecture**, and **100% detection rate** on DeFiVulnLabs + Paradigm CTF benchmarks.
+            Smart contract security audit tool with **104 vulnerability patterns**, **8 analysis tools**, **multi-agent team architecture**, and **100% detection rate** on 85/85 CTF benchmark challenges (DeFiVulnLabs + Paradigm CTF + R3CTF 2025 + HTB Cyber Apocalypse 2025).
 
             ---
 
@@ -365,6 +365,9 @@ jobs:
             | Paradigm CTF 2021 | 10/10 static challenges (100%) |
             | Paradigm CTF 2022 | 7/7 static challenges (100%) |
             | Paradigm CTF 2023 | 7/7 static challenges (100%) |
+            | R3CTF 2025 | 2/2 challenges (100%) |
+            | HTB Cyber Apocalypse 2025 | 3/3 challenges (100%) |
+            | **Combined** | **85/85 (100%)** |
 
             ### System Requirements
 
