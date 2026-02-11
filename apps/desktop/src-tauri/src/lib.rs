@@ -813,6 +813,82 @@ fn export_report_html(html: String) -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Generate a styled PDF report using Python weasyprint and return the file path.
+#[tauri::command]
+async fn export_report_pdf(
+    markdown: String,
+    audit_id: String,
+    app: tauri::AppHandle,
+) -> Result<Vec<u8>, String> {
+    let python = find_python().ok_or("Python3 not found. Install Python 3 for PDF generation.")?;
+    let report_script = find_report_generator(&app)
+        .ok_or("Report generator script not found. PDF generation unavailable.")?;
+
+    // Write markdown to temp file
+    let md_path = std::env::temp_dir().join(format!("solidityguard_report_{}.md", audit_id));
+    let pdf_path = std::env::temp_dir().join(format!("solidityguard_report_{}.pdf", audit_id));
+
+    std::fs::write(&md_path, &markdown)
+        .map_err(|e| format!("Failed to write temp markdown: {}", e))?;
+
+    // Call Python: python3 report_generator.py --markdown-to-pdf input.md output.pdf
+    let output = Command::new(&python)
+        .arg(&report_script)
+        .arg("--markdown-to-pdf")
+        .arg(md_path.to_str().unwrap())
+        .arg(pdf_path.to_str().unwrap())
+        .output()
+        .map_err(|e| format!("Failed to run PDF generator: {}", e))?;
+
+    let _ = std::fs::remove_file(&md_path);
+
+    if !pdf_path.exists() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let _ = std::fs::remove_file(&pdf_path);
+        return Err(format!(
+            "PDF generation failed. Install weasyprint: pip install weasyprint. Error: {}",
+            stderr.chars().take(300).collect::<String>()
+        ));
+    }
+
+    let pdf_bytes = std::fs::read(&pdf_path)
+        .map_err(|e| format!("Failed to read generated PDF: {}", e))?;
+    let _ = std::fs::remove_file(&pdf_path);
+
+    Ok(pdf_bytes)
+}
+
+/// Find the report_generator.py script.
+fn find_report_generator(app: &tauri::AppHandle) -> Option<String> {
+    // 1. Check Tauri bundled resources
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join("report_generator.py");
+        if bundled.exists() {
+            return Some(bundled.to_string_lossy().to_string());
+        }
+    }
+
+    // 2. Check common locations
+    let mut candidates = vec![
+        ".claude/skills/solidity-guard/scripts/report_generator.py".to_string(),
+        "/app/scripts/report_generator.py".to_string(),
+    ];
+
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(format!(
+            "{}/.claude/skills/solidity-guard/scripts/report_generator.py",
+            home
+        ));
+    }
+
+    for candidate in &candidates {
+        if PathBuf::from(candidate).exists() {
+            return Some(candidate.clone());
+        }
+    }
+    None
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -827,6 +903,7 @@ pub fn run() {
             run_slither,
             run_aderyn,
             export_report_html,
+            export_report_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SolidityGuard");

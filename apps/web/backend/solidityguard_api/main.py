@@ -48,7 +48,22 @@ app.include_router(fuzz.router)
 app.include_router(patterns.router)
 app.include_router(tools.router)
 
-# Serve static frontend in production (Docker)
+# Serve static frontend in production (Docker / Railway)
 _static_dir = Path("/app/static")
 if _static_dir.is_dir():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
+    from fastapi.responses import FileResponse
+
+    _index_html = _static_dir / "index.html"
+
+    # Catch-all for SPA client-side routes (e.g. /new, /audit/xxx, /report/xxx)
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        # Serve actual static files if they exist
+        static_file = _static_dir / full_path
+        if static_file.is_file():
+            return FileResponse(static_file)
+        # Otherwise return index.html for client-side routing
+        return FileResponse(_index_html)
+else:
+    # Dev mode: no static files, frontend runs on separate dev server
+    pass

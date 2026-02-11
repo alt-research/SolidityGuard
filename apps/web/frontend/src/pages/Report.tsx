@@ -87,9 +87,24 @@ export default function Report() {
       setExporting(true)
       try {
         if (isTauri) {
-          // Desktop: write styled HTML to temp file and open in browser for print/save-as-PDF
-          const reportHtml = renderMarkdown(markdown)
-          const fullHtml = `<!DOCTYPE html>
+          // Desktop: generate PDF using Python weasyprint (same engine as web app)
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pdfBytes: number[] = await (window as any).__TAURI__.core.invoke('export_report_pdf', {
+              markdown,
+              auditId: id,
+            })
+            const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `audit-report-${id.slice(0, 8)}.pdf`
+            a.click()
+            URL.revokeObjectURL(url)
+          } catch {
+            // Fallback: open styled HTML in browser for print-to-PDF
+            const reportHtml = renderMarkdown(markdown)
+            const fullHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>SolidityGuard Audit Report</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; font-size: 14px; line-height: 1.6; }
@@ -110,8 +125,9 @@ export default function Report() {
 </head><body>${reportHtml}
 <script>window.onload = function() { window.print(); }</script>
 </body></html>`
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (window as any).__TAURI__.core.invoke('export_report_html', { html: fullHtml })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (window as any).__TAURI__.core.invoke('export_report_html', { html: fullHtml })
+          }
         } else {
           const BASE_URL = import.meta.env.VITE_API_URL || ''
           const token = localStorage.getItem('solidityguard_token')

@@ -1034,15 +1034,79 @@ def generate_pdf(data: dict, pdf_path: str, project: str = "", client: str = "")
     return False
 
 
+def markdown_to_pdf(md_path: str, pdf_path: str) -> bool:
+    """Convert a Markdown file directly to a styled PDF using weasyprint.
+
+    Used by the desktop app to generate PDFs without a web API.
+    """
+    import markdown as md_lib
+
+    with open(md_path) as f:
+        md_content = f.read()
+
+    html_body = md_lib.markdown(md_content, extensions=["tables", "fenced_code"])
+
+    full_html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+{PDF_CSS}
+body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a1a; }}
+h1 {{ font-size: 22pt; color: #1e293b; border-bottom: 3px solid #4f46e5; padding-bottom: 8px; margin-top: 0; }}
+h2 {{ font-size: 16pt; color: #1e293b; margin-top: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }}
+h3 {{ font-size: 13pt; color: #334155; margin-top: 18px; }}
+table {{ width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; }}
+th, td {{ border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; }}
+th {{ background: #f8fafc; font-weight: 600; }}
+code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 9pt; font-family: 'Menlo', 'Consolas', monospace; }}
+pre {{ background: #f8fafc; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 9pt; }}
+pre code {{ background: none; padding: 0; }}
+hr {{ border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }}
+strong {{ font-weight: 600; }}
+li {{ margin: 3px 0; }}
+</style>
+</head><body>{html_body}</body></html>"""
+
+    try:
+        import weasyprint
+        weasyprint.HTML(string=full_html).write_pdf(pdf_path)
+        return True
+    except ImportError:
+        print("[ERROR] weasyprint not installed. Install with: pip install weasyprint")
+        return False
+    except Exception as e:
+        print(f"[ERROR] PDF generation failed: {e}")
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description="SolidityGuard Report Generator")
-    parser.add_argument("input", help="Path to scan results JSON file")
-    parser.add_argument("--output", "-o", required=True, help="Output file path (.md)")
+    parser.add_argument("input", nargs="?", help="Path to scan results JSON file")
+    parser.add_argument("--output", "-o", help="Output file path (.md)")
     parser.add_argument("--pdf", action="store_true", help="Also generate PDF")
     parser.add_argument("--project", default="", help="Project name")
     parser.add_argument("--client", default="", help="Client name")
+    parser.add_argument("--markdown-to-pdf", nargs=2, metavar=("MD_FILE", "PDF_FILE"),
+                        help="Convert a Markdown file to styled PDF (desktop app)")
 
     args = parser.parse_args()
+
+    # Direct markdown-to-PDF mode (used by desktop app)
+    if args.markdown_to_pdf:
+        md_file, pdf_file = args.markdown_to_pdf
+        if not os.path.exists(md_file):
+            print(f"Error: Markdown file '{md_file}' not found")
+            sys.exit(1)
+        if markdown_to_pdf(md_file, pdf_file):
+            print(f"PDF written to {pdf_file}")
+        else:
+            sys.exit(1)
+        return
+
+    if not args.input:
+        parser.error("input file is required (or use --markdown-to-pdf)")
+
+    if not args.output:
+        parser.error("--output is required")
 
     if not os.path.exists(args.input):
         print(f"Error: Input file '{args.input}' not found")

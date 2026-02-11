@@ -52,10 +52,18 @@ async def start_audit(
         for f in files:
             if not f.filename:
                 continue
-            dest = os.path.join(temp_dir, f.filename)
-            content = await f.read()
-            with open(dest, "wb") as out:
-                out.write(content)
+            # Sanitize: strip leading slashes / ../ to prevent path traversal
+            safe_name = os.path.normpath(f.filename).lstrip(os.sep)
+            if safe_name.startswith(".."):
+                continue
+            dest = os.path.join(temp_dir, safe_name)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            try:
+                content = await f.read()
+                with open(dest, "wb") as out:
+                    out.write(content)
+            except Exception as exc:
+                logger.warning("Failed to save uploaded file %s: %s", f.filename, exc)
         target_path = temp_dir
     elif path:
         if not os.path.exists(path):
