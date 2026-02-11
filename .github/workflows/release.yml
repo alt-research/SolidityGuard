@@ -96,6 +96,22 @@ jobs:
             librsvg2-dev \
             libfuse2
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build scanner binaries (Linux)
+        run: |
+          cd apps/desktop/pyinstaller
+          pip install -r requirements-build.txt
+          pyinstaller solidityguard-scanner.spec --clean
+          pyinstaller solidityguard-report-gen.spec --clean
+          ./dist/solidityguard-scanner --help
+          mkdir -p ../src-tauri/binaries
+          cp dist/solidityguard-scanner ../src-tauri/binaries/
+          cp dist/solidityguard-report-gen ../src-tauri/binaries/
+
       - name: Build web frontend
         run: |
           cd apps/web/frontend
@@ -168,6 +184,22 @@ jobs:
 
       - name: Install DMG tools
         run: brew install create-dmg
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build scanner binaries (macOS)
+        run: |
+          cd apps/desktop/pyinstaller
+          pip install -r requirements-build.txt
+          pyinstaller solidityguard-scanner.spec --clean
+          pyinstaller solidityguard-report-gen.spec --clean
+          ./dist/solidityguard-scanner --help
+          mkdir -p ../src-tauri/binaries
+          cp dist/solidityguard-scanner ../src-tauri/binaries/
+          cp dist/solidityguard-report-gen ../src-tauri/binaries/
 
       - name: Build web frontend
         run: |
@@ -256,6 +288,23 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build scanner binaries (Windows)
+        shell: pwsh
+        run: |
+          cd apps/desktop/pyinstaller
+          pip install -r requirements-build.txt
+          pyinstaller solidityguard-scanner.spec --clean
+          pyinstaller solidityguard-report-gen.spec --clean
+          ./dist/solidityguard-scanner.exe --help
+          New-Item -ItemType Directory -Force -Path ../src-tauri/binaries
+          Copy-Item dist/solidityguard-scanner.exe ../src-tauri/binaries/
+          Copy-Item dist/solidityguard-report-gen.exe ../src-tauri/binaries/
 
       - name: Build web frontend
         run: |

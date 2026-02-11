@@ -13,6 +13,7 @@ fn null_as_empty<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {
 
 #[derive(Serialize)]
 pub struct ToolStatus {
+    pub native_scanner: bool,
     pub slither: bool,
     pub aderyn: bool,
     pub mythril: bool,
@@ -118,6 +119,7 @@ async fn select_contracts_dir(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn check_tools() -> Result<ToolStatus, String> {
     Ok(ToolStatus {
+        native_scanner: find_scanner_binary().is_some(),
         slither: is_tool_available("slither"),
         aderyn: is_tool_available("aderyn"),
         mythril: is_tool_available("myth"),
@@ -128,7 +130,7 @@ fn check_tools() -> Result<ToolStatus, String> {
 }
 
 /// Run a local audit scan on a directory using available tools.
-/// Priority: Docker > solidityguard CLI > Python scanner > local tools
+/// Priority: Native binary > Docker > solidityguard CLI > Python scanner > local tools
 #[tauri::command]
 async fn run_local_scan(
     path: String,
@@ -159,7 +161,22 @@ async fn run_local_scan(
     // Collect errors from each attempt for diagnostics
     let mut errors: Vec<String> = Vec::new();
 
-    // 1. Try Docker first (most reliable — has full CLI + all tools)
+    // 1. Try native bundled binary first (zero external dependencies)
+    if let Some(binary) = find_scanner_binary() {
+        match run_native_scan(&binary, &audit_id, &path, &tools_arg) {
+            Ok(result) => {
+                store
+                    .0
+                    .lock()
+                    .unwrap()
+                    .insert(audit_id.clone(), result.clone());
+                return Ok(result);
+            }
+            Err(e) => errors.push(format!("Native binary: {}", e)),
+        }
+    }
+
+    // 2. Try Docker (has full CLI + all tools)
     if is_tool_available("docker") {
         match run_docker_scan(&audit_id, &path) {
             Ok(result) => {
@@ -174,7 +191,7 @@ async fn run_local_scan(
         }
     }
 
-    // 2. Try solidityguard CLI (pip-installed)
+    // 3. Try solidityguard CLI (pip-installed)
     if is_tool_available("solidityguard") {
         match Command::new("solidityguard")
             .arg("audit")
@@ -206,7 +223,7 @@ async fn run_local_scan(
         let _ = std::fs::remove_file(&temp_output);
     }
 
-    // 3. Try Python scanner script (bundled or local)
+    // 4. Try Python scanner script (bundled or local)
     let python = find_python();
     let scanner_script = find_scanner_script(&app);
     if let (Some(py), Some(script)) = (&python, &scanner_script) {
@@ -262,7 +279,7 @@ async fn run_local_scan(
         }
     }
 
-    // 4. Try local tools directly (slither/aderyn)
+    // 5. Try local tools directly (slither/aderyn)
     if has_any_local_tool(&tools) {
         match run_tool_scan(&audit_id, &path, &tools) {
             Ok(result) => {
@@ -284,10 +301,10 @@ async fn run_local_scan(
         format!("\n\nDiagnostics:\n{}", errors.join("\n"))
     };
     Err(format!(
-        "No scanning tools could complete the audit. Install one of:\n\
+        "No scanning tools could complete the audit. The bundled scanner was not found.\n\
+         Try reinstalling the app, or install one of:\n\
          \u{2022} Docker (recommended): docker build -t solidityguard .\n\
-         \u{2022} Python 3: brew install python3 (for built-in pattern scanner)\n\
-         \u{2022} pip install slither-analyzer\n\
+         \u{2022} Python 3 + pip install slither-analyzer\n\
          See https://github.com/alt-research/SolidityGuard for setup.{}",
         diag
     ))
@@ -460,6 +477,149 @@ fn has_any_local_tool(tools: &[String]) -> bool {
         "forge" | "foundry" => is_tool_available("forge"),
         _ => false,
     })
+}
+
+/// Find the bundled native scanner binary (PyInstaller-built).
+/// Checks platform-specific locations inside the app bundle.
+fn find_scanner_binary() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
+    let name = if cfg!(windows) {
+        "solidityguard-scanner.exe"
+    } else {
+        "solidityguard-scanner"
+    };
+
+    // macOS .app: Contents/Resources/binaries/
+    let p = exe_dir.join("../Resources/binaries").join(name);
+    if p.exists() {
+        return Some(std::fs::canonicalize(p).ok()?);
+    }
+
+    // macOS .app: Contents/Resources/ (flat)
+    let p = exe_dir.join("../Resources").join(name);
+    if p.exists() {
+        return Some(std::fs::canonicalize(p).ok()?);
+    }
+
+    // Linux AppImage / deb: ../lib/SolidityGuard/binaries/
+    let p = exe_dir.join("../lib/SolidityGuard/binaries").join(name);
+    if p.exists() {
+        return Some(std::fs::canonicalize(p).ok()?);
+    }
+
+    // Next to binary (Windows / generic / dev)
+    let p = exe_dir.join(name);
+    if p.exists() {
+        return Some(p);
+    }
+
+    // Dev mode: walk up to find apps/desktop/pyinstaller/dist/
+    let mut dir = exe_dir.to_path_buf();
+    for _ in 0..10 {
+        let p = dir.join("apps/desktop/pyinstaller/dist").join(name);
+        if p.exists() {
+            return Some(std::fs::canonicalize(p).ok()?);
+        }
+        dir = match dir.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => break,
+        };
+    }
+
+    None
+}
+
+/// Find the bundled native report generator binary (PyInstaller-built).
+fn find_report_gen_binary() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
+    let name = if cfg!(windows) {
+        "solidityguard-report-gen.exe"
+    } else {
+        "solidityguard-report-gen"
+    };
+
+    // macOS .app: Contents/Resources/binaries/
+    let p = exe_dir.join("../Resources/binaries").join(name);
+    if p.exists() {
+        return Some(std::fs::canonicalize(p).ok()?);
+    }
+
+    // macOS .app: Contents/Resources/ (flat)
+    let p = exe_dir.join("../Resources").join(name);
+    if p.exists() {
+        return Some(std::fs::canonicalize(p).ok()?);
+    }
+
+    // Linux AppImage / deb: ../lib/SolidityGuard/binaries/
+    let p = exe_dir.join("../lib/SolidityGuard/binaries").join(name);
+    if p.exists() {
+        return Some(std::fs::canonicalize(p).ok()?);
+    }
+
+    // Next to binary (Windows / generic / dev)
+    let p = exe_dir.join(name);
+    if p.exists() {
+        return Some(p);
+    }
+
+    // Dev mode: walk up to find apps/desktop/pyinstaller/dist/
+    let mut dir = exe_dir.to_path_buf();
+    for _ in 0..10 {
+        let p = dir.join("apps/desktop/pyinstaller/dist").join(name);
+        if p.exists() {
+            return Some(std::fs::canonicalize(p).ok()?);
+        }
+        dir = match dir.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => break,
+        };
+    }
+
+    None
+}
+
+/// Run scan using the bundled native scanner binary (PyInstaller).
+fn run_native_scan(
+    binary: &std::path::Path,
+    audit_id: &str,
+    path: &str,
+    tools_arg: &str,
+) -> Result<AuditResult, String> {
+    let temp_output = std::env::temp_dir().join(format!("solidityguard_{}.json", audit_id));
+
+    let result = Command::new(binary)
+        .arg(path)
+        .arg("--tools")
+        .arg(tools_arg)
+        .arg("--output")
+        .arg("json")
+        .arg("-f")
+        .arg(temp_output.to_str().unwrap())
+        .output()
+        .map_err(|e| format!("Failed to run native scanner: {e}"))?;
+
+    // Try output file first
+    if let Some(audit_result) = try_parse_output_file(&temp_output, audit_id) {
+        let _ = std::fs::remove_file(&temp_output);
+        return Ok(audit_result);
+    }
+
+    // Try stdout
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    if let Some(audit_result) = try_parse_json_from_mixed_output(&stdout, audit_id) {
+        let _ = std::fs::remove_file(&temp_output);
+        return Ok(audit_result);
+    }
+
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    let _ = std::fs::remove_file(&temp_output);
+    Err(format!(
+        "Native scanner: exit={}, stderr={}",
+        result.status,
+        stderr.chars().take(300).collect::<String>()
+    ))
 }
 
 fn find_scanner_script(app: &tauri::AppHandle) -> Option<String> {
@@ -813,25 +973,44 @@ fn export_report_html(html: String) -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-/// Generate a styled PDF report using Python weasyprint and return the file path.
+/// Generate a styled PDF report and return the file bytes.
+/// Priority: Native binary → Python + weasyprint.
 #[tauri::command]
 async fn export_report_pdf(
     markdown: String,
     audit_id: String,
     app: tauri::AppHandle,
 ) -> Result<Vec<u8>, String> {
-    let python = find_python().ok_or("Python3 not found. Install Python 3 for PDF generation.")?;
-    let report_script = find_report_generator(&app)
-        .ok_or("Report generator script not found. PDF generation unavailable.")?;
-
-    // Write markdown to temp file
     let md_path = std::env::temp_dir().join(format!("solidityguard_report_{}.md", audit_id));
     let pdf_path = std::env::temp_dir().join(format!("solidityguard_report_{}.pdf", audit_id));
 
     std::fs::write(&md_path, &markdown)
         .map_err(|e| format!("Failed to write temp markdown: {}", e))?;
 
-    // Call Python: python3 report_generator.py --markdown-to-pdf input.md output.pdf
+    // 1. Try native report-gen binary (PyInstaller — zero deps)
+    if let Some(binary) = find_report_gen_binary() {
+        let output = Command::new(&binary)
+            .arg("--markdown-to-pdf")
+            .arg(md_path.to_str().unwrap())
+            .arg(pdf_path.to_str().unwrap())
+            .output();
+
+        if let Ok(_) = output {
+            if pdf_path.exists() {
+                let pdf_bytes = std::fs::read(&pdf_path)
+                    .map_err(|e| format!("Failed to read generated PDF: {}", e))?;
+                let _ = std::fs::remove_file(&md_path);
+                let _ = std::fs::remove_file(&pdf_path);
+                return Ok(pdf_bytes);
+            }
+        }
+    }
+
+    // 2. Fall back to Python + report_generator.py
+    let python = find_python().ok_or("Python3 not found. Install Python 3 for PDF generation.")?;
+    let report_script = find_report_generator(&app)
+        .ok_or("Report generator script not found. PDF generation unavailable.")?;
+
     let output = Command::new(&python)
         .arg(&report_script)
         .arg("--markdown-to-pdf")

@@ -18,7 +18,9 @@
       "icons/icon.png"
     ],
     "resources": {
-      "../../../.claude/skills/solidity-guard/scripts/solidity_guard.py": "solidity_guard.py"
+      "../../../.claude/skills/solidity-guard/scripts/solidity_guard.py": "solidity_guard.py",
+      "binaries/solidityguard-scanner*": "binaries/",
+      "binaries/solidityguard-report-gen*": "binaries/"
     },
     "linux": {
       "deb": {

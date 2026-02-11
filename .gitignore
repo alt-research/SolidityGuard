@@ -49,6 +49,9 @@ dist/
 target/
 gen/
 
+# PyInstaller binaries (CI-built, bundled into desktop app)
+apps/desktop/src-tauri/binaries/
+
 # Foundry
 broadcast/
 
