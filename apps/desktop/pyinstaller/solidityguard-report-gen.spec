@@ -2,8 +2,10 @@
 """PyInstaller spec for SolidityGuard report generator — produces a single native binary."""
 
 import os
+import sys
 
 block_cipher = None
+is_windows = sys.platform == 'win32'
 
 a = Analysis(
     [os.path.join('..', '..', '..', '.claude', 'skills', 'solidity-guard', 'scripts', 'report_generator.py')],
@@ -30,7 +32,7 @@ exe = EXE(
     [],
     name='solidityguard-report-gen',
     debug=False,
-    strip=True,
-    upx=True,
+    strip=not is_windows,
+    upx=not is_windows,
     console=True,
 )
