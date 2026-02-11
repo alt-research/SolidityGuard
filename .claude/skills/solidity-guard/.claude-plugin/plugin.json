@@ -1,6 +1,6 @@
 {
   "name": "solidity-guard",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "The most advanced Solidity/EVM smart contract security audit agent. Detects 104 vulnerability patterns across reentrancy, access control, arithmetic, DeFi, proxy, and token categories. Uses multi-agent architecture with knowledge from 15,000+ real audit findings via Solodit, SWC Registry, and top audit firm reports.",
   "author": {
     "name": "SolidityGuard",
