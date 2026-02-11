@@ -3,6 +3,34 @@ import { useParams } from 'react-router'
 import { api, isTauri } from '../services/api.ts'
 import { Download, FileText, FileJson, FileCode, Loader2 } from 'lucide-react'
 
+/** Build print-ready HTML for PDF generation (light theme, A4 styled). */
+function buildPdfHtml(md: string): string {
+  if (!md) return ''
+  let html = md
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    .replace(/^---$/gm, '<hr />')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^\| (.+) \|$/gm, (match) => {
+      const cells = match.split('|').filter(c => c.trim())
+      if (cells.every(c => /^[-:\s]+$/.test(c))) return ''
+      const isHeader = cells.some(c => c.includes('#') || c.includes('ID') || c.includes('Title') || c.includes('Severity'))
+      const tag = isHeader ? 'th' : 'td'
+      return `<tr>${cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`
+    })
+    .replace(/^- (.*$)/gm, '<li>$1</li>')
+    .replace(/^(?!<|$|\s*$)(.+)$/gm, '<p>$1</p>')
+  if (html.includes('<tr>')) {
+    html = html.replace(
+      /(<tr>[\s\S]*?<\/tr>(?:\s*<tr>[\s\S]*?<\/tr>)*)/g,
+      '<table>$1</table>'
+    )
+  }
+  return html
+}
+
 function renderMarkdown(md: string): string {
   if (!md) return '<p class="text-sm text-text-secondary">No report content available.</p>'
   let html = md
@@ -87,47 +115,53 @@ export default function Report() {
       setExporting(true)
       try {
         if (isTauri) {
-          // Desktop: generate PDF using Python weasyprint (same engine as web app)
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const pdfBytes: number[] = await (window as any).__TAURI__.core.invoke('export_report_pdf', {
-              markdown,
-              auditId: id,
-            })
-            const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `audit-report-${id.slice(0, 8)}.pdf`
-            a.click()
-            URL.revokeObjectURL(url)
-          } catch {
-            // Fallback: open styled HTML in browser for print-to-PDF
-            const reportHtml = renderMarkdown(markdown)
-            const fullHtml = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>SolidityGuard Audit Report</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; font-size: 14px; line-height: 1.6; }
-  h1 { font-size: 24px; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
-  h2 { font-size: 18px; margin-top: 32px; color: #1e293b; }
-  h3 { font-size: 15px; margin-top: 24px; }
-  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
-  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; }
-  th { background: #f8fafc; font-weight: 600; }
-  code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
-  hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
-  strong { font-weight: 600; }
-  pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; }
-  pre code { background: none; padding: 0; }
-  li { margin: 4px 0; }
-  @media print { body { margin: 20px; } }
-</style>
-</head><body>${reportHtml}
-<script>window.onload = function() { window.print(); }</script>
-</body></html>`
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (window as any).__TAURI__.core.invoke('export_report_html', { html: fullHtml })
-          }
+          // Desktop: generate PDF client-side using html2pdf.js (no Python dependency)
+          const html2pdf = (await import('html2pdf.js')).default
+          const container = document.createElement('div')
+          container.innerHTML = buildPdfHtml(markdown)
+          container.style.cssText = `
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 700px; margin: 0 auto; padding: 20px; color: #1a1a1a;
+            font-size: 13px; line-height: 1.6; position: absolute; left: -9999px;
+          `
+          // Apply PDF styles to elements
+          container.querySelectorAll('h1').forEach(el => {
+            (el as HTMLElement).style.cssText = 'font-size: 22px; border-bottom: 2px solid #4f46e5; padding-bottom: 6px; margin-top: 0;'
+          })
+          container.querySelectorAll('h2').forEach(el => {
+            (el as HTMLElement).style.cssText = 'font-size: 16px; margin-top: 28px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;'
+          })
+          container.querySelectorAll('h3').forEach(el => {
+            (el as HTMLElement).style.cssText = 'font-size: 14px; margin-top: 20px; color: #334155;'
+          })
+          container.querySelectorAll('table').forEach(el => {
+            (el as HTMLElement).style.cssText = 'width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 11px;'
+          })
+          container.querySelectorAll('th, td').forEach(el => {
+            (el as HTMLElement).style.cssText = 'border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left;'
+          })
+          container.querySelectorAll('th').forEach(el => {
+            (el as HTMLElement).style.cssText += 'background: #f8fafc; font-weight: 600;'
+          })
+          container.querySelectorAll('code').forEach(el => {
+            (el as HTMLElement).style.cssText = 'background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; font-family: Menlo, Consolas, monospace;'
+          })
+          container.querySelectorAll('hr').forEach(el => {
+            (el as HTMLElement).style.cssText = 'border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;'
+          })
+          document.body.appendChild(container)
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (html2pdf() as any).set({
+            margin: [15, 15, 20, 15],
+            filename: `audit-report-${id.slice(0, 8)}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+          }).from(container).save()
+
+          document.body.removeChild(container)
         } else {
           const BASE_URL = import.meta.env.VITE_API_URL || ''
           const token = localStorage.getItem('solidityguard_token')
