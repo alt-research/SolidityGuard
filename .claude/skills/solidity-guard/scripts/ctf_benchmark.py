@@ -5,10 +5,12 @@ CTF Benchmark — Validate SolidityGuard scanner against known-vulnerable contra
 Supports multiple CTF sources:
   - DeFiVulnLabs (56 isolated vulnerability tests by SunWeb3Sec)
   - Paradigm CTF 2021/2022/2023 (competitive security challenges)
+  - 2025 CTFs: R3CTF 2025 + HTB Cyber Apocalypse 2025
 
 Usage:
     python3 ctf_benchmark.py                     # DeFiVulnLabs benchmark
     python3 ctf_benchmark.py --paradigm          # Paradigm CTF benchmark
+    python3 ctf_benchmark.py --ctf2025           # 2025 CTF benchmark
     python3 ctf_benchmark.py --all               # All benchmarks
     python3 ctf_benchmark.py --dry-run           # Show mapping only
     python3 ctf_benchmark.py --repo-path /tmp/X  # Use existing clone
@@ -773,6 +775,179 @@ PARADIGM_CTF_MAP = {
 }
 
 
+# ─── 2025 CTF → ETH pattern mapping ───────────────────────────────────────
+# R3CTF 2025 (r3kapig) + HTB Cyber Apocalypse 2025 (HackTheBox)
+# Maps challenge_name → { source, files_dir, files, eth_ids, category, static }
+
+CTF_2025_REPOS = {
+    "r3ctf-2025": "https://github.com/r3kapig/r3ctf-2025.git",
+    "cyber-apocalypse-2025": "https://github.com/hackthebox/cyber-apocalypse-2025.git",
+}
+
+CTF_2025_MAP = {
+    # ═══════════════════════════════════════════════════════════════
+    #  R3CTF 2025 (r3kapig — Blockchain "Blackchain" category)
+    # ═══════════════════════════════════════════════════════════════
+
+    "r3ctf-2025/miniagent": {
+        "source": "r3ctf-2025",
+        "files_dir": "Blackchain/miniagent/attachment/src",
+        "files": ["Arena.sol", "Boss.sol", "Challenge.sol", "Randomness.sol"],
+        "eth_ids": ["ETH-037"],  # Weak randomness (block.prevrandao as seed)
+        "category": "Logic",
+        "static": True,
+        "description": "Battle arena with predictable randomness (block.prevrandao seed)",
+    },
+    "r3ctf-2025/signin": {
+        "source": "r3ctf-2025",
+        "files_dir": "Blackchain/signin/attachment/src",
+        "files": ["Vault.sol", "Setup.sol", "LING.sol"],
+        "eth_ids": ["ETH-057"],  # Vault share inflation / first depositor attack
+        "category": "DeFi",
+        "static": True,
+        "description": "ERC4626 vault with first-depositor inflation vulnerability",
+    },
+
+    # NOTE: socpcl and socpclv2 are Solana/Rust challenges — not applicable
+
+    # ═══════════════════════════════════════════════════════════════
+    #  HTB Cyber Apocalypse 2025 (HackTheBox)
+    #  Source: github.com/hackthebox/cyber-apocalypse-2025
+    #  NOTE: Repo has compiled JSON only, no .sol source. We use
+    #  reconstructed contracts from official writeups.
+    # ═══════════════════════════════════════════════════════════════
+
+    "htb-ca-2025/Eldorion": {
+        "source": "htb-ca-2025-embedded",
+        "files_dir": None,  # Embedded test contract
+        "files": [],
+        "eth_ids": ["ETH-036"],  # Timestamp-based state reset
+        "category": "Logic",
+        "static": True,
+        "description": "Health regeneration via block.timestamp comparison — batch attack in single block",
+        "embedded_code": {
+            "Eldorion.sol": '''// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+contract Eldorion {
+    uint256 public health = 300;
+    uint256 public lastAttackTimestamp;
+    uint256 private constant MAX_HEALTH = 300;
+    event EldorionDefeated(address slayer);
+    modifier eternalResilience() {
+        if (block.timestamp > lastAttackTimestamp) {
+            health = MAX_HEALTH;
+            lastAttackTimestamp = block.timestamp;
+        }
+        _;
+    }
+    function attack(uint256 damage) external eternalResilience {
+        require(damage <= 100, "Mortals cannot strike harder than 100");
+        require(health >= damage, "Overkill is wasteful");
+        health -= damage;
+        if (health == 0) { emit EldorionDefeated(msg.sender); }
+    }
+}''',
+        },
+    },
+    "htb-ca-2025/HeliosDEX": {
+        "source": "htb-ca-2025-embedded",
+        "files_dir": None,
+        "files": [],
+        "eth_ids": ["ETH-016"],  # Rounding mode inconsistency
+        "category": "Arithmetic",
+        "static": True,
+        "description": "DEX with inconsistent Math.mulDiv rounding modes (Floor vs Expand)",
+        "embedded_code": {
+            "HeliosDEX.sol": '''// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+import "@openzeppelin/contracts/utils/math/Math.sol";
+contract HeliosDEX {
+    uint256 public immutable exchangeRatioELD = 2;
+    uint256 public immutable exchangeRatioMAL = 4;
+    uint256 public immutable exchangeRatioHLS = 10;
+    uint256 public immutable feeBps = 25;
+    mapping(address => bool) public hasRefunded;
+    // Floor rounding — favors contract
+    function swapForELD() external payable {
+        uint256 grossELD = Math.mulDiv(msg.value, exchangeRatioELD, 1e18, Math.Rounding(0));
+        uint256 fee = (grossELD * feeBps) / 10_000;
+        uint256 netELD = grossELD - fee;
+        require(netELD > 0, "Zero tokens");
+    }
+    // Ceil rounding — favors user slightly
+    function swapForMAL() external payable {
+        uint256 grossMal = Math.mulDiv(msg.value, exchangeRatioMAL, 1e18, Math.Rounding(1));
+        uint256 fee = (grossMal * feeBps) / 10_000;
+        uint256 netMAL = grossMal - fee;
+        require(netMAL > 0, "Zero tokens");
+    }
+    // Expand rounding — strongly favors user (1 wei -> 1 HLS)
+    function swapForHLS() external payable {
+        uint256 grossHLS = Math.mulDiv(msg.value, exchangeRatioHLS, 1e18, Math.Rounding(3));
+        uint256 fee = (grossHLS * feeBps) / 10_000;
+        uint256 netHLS = grossHLS - fee;
+        require(netHLS > 0, "Zero tokens");
+    }
+    function oneTimeRefund(address item, uint256 amount) external {
+        require(!hasRefunded[msg.sender], "Refund already bestowed");
+        uint256 grossEth = Math.mulDiv(amount, 1e18, exchangeRatioHLS);
+        hasRefunded[msg.sender] = true;
+        payable(msg.sender).transfer(grossEth);
+    }
+}''',
+        },
+    },
+    "htb-ca-2025/EldoriaGate": {
+        "source": "htb-ca-2025-embedded",
+        "files_dir": None,
+        "files": [],
+        "eth_ids": ["ETH-013"],  # Integer overflow in assembly (uint256→uint8)
+        "category": "Arithmetic",
+        "static": True,
+        "description": "Assembly integer overflow — uint256 add truncated to uint8 in storage",
+        "embedded_code": {
+            "EldoriaGate.sol": '''// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+contract EldoriaGateKernel {
+    bytes4 private eldoriaSecret;
+    uint8 private constant ROLE_SERF = 1;
+    struct Villager { uint256 id; bool authenticated; uint8 roles; }
+    mapping(address => Villager) public villagers;
+    uint256 public villagerCount;
+    constructor(bytes4 _secret) { eldoriaSecret = _secret; }
+    function authenticate(address _unknown, bytes4 _passphrase) external returns (bool) {
+        return _passphrase == eldoriaSecret;
+    }
+    function evaluateIdentity(address _unknown, uint8 _contribution) external {
+        uint256 id = ++villagerCount;
+        uint8 roles;
+        assembly {
+            let defaultRolesMask := ROLE_SERF
+            roles := add(defaultRolesMask, _contribution)
+            if lt(roles, defaultRolesMask) { revert(0, 0) }
+        }
+        villagers[_unknown] = Villager(id, true, roles);
+    }
+}
+contract EldoriaGate {
+    EldoriaGateKernel public kernel;
+    constructor(bytes4 _secret) { kernel = new EldoriaGateKernel(_secret); }
+    function enter(bytes4 passphrase) external payable {
+        bool isAuthenticated = kernel.authenticate(msg.sender, passphrase);
+        require(isAuthenticated, "Authentication failed");
+        uint8 contribution = uint8(msg.value);
+        kernel.evaluateIdentity(msg.sender, contribution);
+    }
+    function checkUsurper(address _villager) external view returns (bool) {
+        (uint256 id, bool authenticated, uint8 rolesBitMask) = kernel.villagers(_villager);
+        return authenticated && (rolesBitMask == 0);
+    }
+}''',
+        },
+    },
+}
+
+
 @dataclass
 class BenchmarkResult:
     contract: str
@@ -856,6 +1031,126 @@ def run_benchmark(repo_path: str) -> list[BenchmarkResult]:
                   f"detected {detected_ids}")
 
     return results
+
+
+def ensure_2025_repos() -> dict:
+    """Ensure 2025 CTF repos are cloned, return {name: path}."""
+    paths = {}
+    for name, url in CTF_2025_REPOS.items():
+        dest = os.path.join(tempfile.gettempdir(), name)
+        if os.path.isdir(dest):
+            print(f"Using existing clone at {dest}")
+        else:
+            if not clone_repo(dest, url):
+                continue
+        paths[name] = dest
+    return paths
+
+
+def run_2025_benchmark(repo_paths: dict) -> list[BenchmarkResult]:
+    """Run scan_patterns against each mapped 2025 CTF challenge."""
+    import shutil
+    results = []
+
+    for challenge_key, mapping in sorted(CTF_2025_MAP.items()):
+        eth_ids = mapping["eth_ids"]
+        source = mapping["source"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            found_any = False
+
+            if source == "htb-ca-2025-embedded":
+                # Write embedded code to temp dir
+                for fname, code in mapping.get("embedded_code", {}).items():
+                    with open(os.path.join(tmpdir, fname), "w") as f:
+                        f.write(code)
+                    found_any = True
+            elif source in repo_paths:
+                # Copy files from cloned repo
+                repo = repo_paths[source]
+                files_dir = mapping.get("files_dir", "")
+                for fname in mapping.get("files", []):
+                    src = os.path.join(repo, files_dir, fname) if files_dir else None
+                    if src and os.path.exists(src):
+                        shutil.copy2(src, os.path.join(tmpdir, fname))
+                        found_any = True
+
+            if not found_any:
+                print(f"  [SKIP] {challenge_key} — no files found")
+                result = BenchmarkResult(contract=challenge_key, expected_ids=eth_ids, detected_ids=[])
+                result.compute()
+                results.append(result)
+                continue
+
+            findings = scan_patterns(tmpdir)
+            detected_ids = list(set(f.id for f in findings))
+
+            result = BenchmarkResult(
+                contract=challenge_key,
+                expected_ids=eth_ids,
+                detected_ids=detected_ids,
+            )
+            result.compute()
+            results.append(result)
+
+            status = "PASS" if result.detected else "MISS"
+            print(f"  [{status}] {challenge_key}: expected {eth_ids}, detected {detected_ids}")
+
+    return results
+
+
+def print_2025_report(results: list[BenchmarkResult]):
+    """Print 2025 CTF benchmark summary."""
+    with_patterns = [r for r in results if r.expected_ids]
+    total = len(results)
+    total_static = len(with_patterns)
+    detected_static = sum(1 for r in with_patterns if r.detected)
+    all_tp = sum(len(r.true_positives) for r in with_patterns)
+    all_expected = sum(len(r.expected_ids) for r in with_patterns)
+
+    print("\n" + "=" * 70)
+    print("CTF BENCHMARK REPORT — 2025 CTFs (R3CTF + HTB Cyber Apocalypse)")
+    print("=" * 70)
+    print(f"\nTotal challenges:           {total}")
+    print(f"Challenges with patterns:   {total_static}")
+    print(f"\nDetection rate:             {detected_static}/{total_static} "
+          f"({100*detected_static//total_static if total_static else 0}%)")
+    print(f"Pattern matches:            {all_tp}/{all_expected} "
+          f"({100*all_tp//all_expected if all_expected else 0}%)")
+
+    missed = [r for r in with_patterns if not r.detected]
+    if missed:
+        print("\n--- Missed Challenges ---")
+        for r in missed:
+            mapping = CTF_2025_MAP.get(r.contract, {})
+            print(f"  {r.contract}: expected {r.expected_ids} — {mapping.get('description', '')}")
+
+    print("\n--- Detection by Source ---")
+    for source_name in ["R3CTF 2025", "HTB CA 2025"]:
+        prefix = "r3ctf" if "R3CTF" in source_name else "htb"
+        src_results = [r for r in with_patterns if prefix in r.contract]
+        if not src_results:
+            continue
+        det = sum(1 for r in src_results if r.detected)
+        tot = len(src_results)
+        pct = 100 * det // tot if tot else 0
+        bar = "#" * (pct // 5) + "." * (20 - pct // 5)
+        print(f"  {source_name:<20} [{bar}] {det}/{tot} ({pct}%)")
+
+    print("\n--- Detection by Category ---")
+    categories = {}
+    for r in with_patterns:
+        cat = CTF_2025_MAP.get(r.contract, {}).get("category", "Unknown")
+        if cat not in categories:
+            categories[cat] = {"total": 0, "detected": 0}
+        categories[cat]["total"] += 1
+        if r.detected:
+            categories[cat]["detected"] += 1
+
+    for cat, counts in sorted(categories.items()):
+        pct = 100 * counts["detected"] // counts["total"] if counts["total"] else 0
+        bar = "#" * (pct // 5) + "." * (20 - pct // 5)
+        print(f"  {cat:<20} [{bar}] {counts['detected']}/{counts['total']} ({pct}%)")
 
 
 def ensure_paradigm_repos() -> dict:
@@ -1101,8 +1396,10 @@ def main():
                         help="Show mapping without cloning/scanning")
     parser.add_argument("--paradigm", action="store_true",
                         help="Run Paradigm CTF benchmark (2021+2022+2023)")
+    parser.add_argument("--ctf2025", action="store_true",
+                        help="Run 2025 CTF benchmark (R3CTF + HTB Cyber Apocalypse)")
     parser.add_argument("--all", action="store_true",
-                        help="Run all benchmarks (DeFiVulnLabs + Paradigm CTF)")
+                        help="Run all benchmarks (DeFiVulnLabs + Paradigm + 2025 CTFs)")
     parser.add_argument("--repo-path", help="Path to existing DeFiVulnLabs clone")
     parser.add_argument("--output", help="Write JSON results to file")
 
@@ -1112,8 +1409,9 @@ def main():
         print_dry_run()
         return
 
-    run_defi = not args.paradigm or args.all
+    run_defi = not (args.paradigm or args.ctf2025) or args.all
     run_paradigm = args.paradigm or args.all
+    run_2025 = args.ctf2025 or args.all
 
     all_results = {}
 
@@ -1148,6 +1446,17 @@ def main():
             paradigm_results = run_paradigm_benchmark(repo_paths)
             print_paradigm_report(paradigm_results)
             all_results["ParadigmCTF"] = paradigm_results
+
+    # ── 2025 CTF benchmark ──
+    if run_2025:
+        print("\n" + "=" * 70)
+        print("2025 CTF BENCHMARK (R3CTF + HTB Cyber Apocalypse)")
+        print("=" * 70)
+        repo_paths_2025 = ensure_2025_repos()
+        print("\nRunning 2025 CTF benchmark...")
+        ctf2025_results = run_2025_benchmark(repo_paths_2025)
+        print_2025_report(ctf2025_results)
+        all_results["CTF2025"] = ctf2025_results
 
     # ── Combined summary ──
     if args.all and len(all_results) > 1:

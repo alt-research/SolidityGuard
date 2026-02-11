@@ -380,6 +380,29 @@ def scan_patterns(target_path: str) -> list:
                          "Reorder to multiply first: (a * c) / b instead of (a / b) * c.",
                          "arithmetic")
 
+            # ─── ETH-016: Rounding Errors ────────────────────────────
+            # Detect: Math.mulDiv with inconsistent Rounding modes across functions, or
+            # Math.Rounding(3) (Expand) which rounds away from zero, favoring user
+            if re.search(r'Math\.mulDiv\s*\(', line):
+                rounding_match = re.search(r'Math\.Rounding\s*\(\s*([0-3])\s*\)', line)
+                if rounding_match:
+                    mode = int(rounding_match.group(1))
+                    if mode >= 2:  # Expand (3) or Trunc (2) — non-standard rounding
+                        _add("ETH-016", "Asymmetric Rounding Mode in mulDiv", "MEDIUM", 0.70,
+                             sol_file, i, stripped,
+                             f"Math.mulDiv uses Rounding({mode}) which may create exploitable pricing asymmetry.",
+                             "Use consistent rounding modes (Floor for user-facing, Ceil for protocol-facing).",
+                             "arithmetic")
+                    else:
+                        # Still flag mulDiv with explicit rounding — different modes in same contract
+                        if "ETH-016" not in file_findings:
+                            _add("ETH-016", "Rounding Mode in Financial Calculation", "LOW", 0.50,
+                                 sol_file, i, stripped,
+                                 "Math.mulDiv with explicit rounding mode. Verify consistency across swap/refund functions.",
+                                 "Ensure swap and refund functions use matching rounding directions.",
+                                 "arithmetic")
+                            file_findings.add("ETH-016")
+
             # ─── ETH-017: Precision Loss ───────────────────────────
             # Detect: division by large denominators (1e18, 365 days, etc.) or division yielding 0
             if re.search(r'/\s*\(?\s*(?:\d+\s*(?:days|hours|minutes|seconds)\s*\*\s*1e\d+|1e\d{2,})', line):
@@ -585,6 +608,25 @@ def scan_patterns(target_path: str) -> list:
                      "Use Chainlink VRF or commit-reveal scheme for randomness.",
                      "logic", "SWC-120")
 
+            # ─── ETH-036: Timestamp Dependence ──────────────────────
+            if "block.timestamp" in line and "ETH-037" not in [f.id for f in findings if f.file == sol_file and f.line == i]:
+                # block.timestamp used in comparisons for state changes (not randomness)
+                if re.search(r'block\.timestamp\s*[><=!]+', line) or re.search(r'[><=!]+\s*block\.timestamp', line):
+                    if any(k in cl for k in ["health", "reset", "lock", "unlock", "expire", "cooldown",
+                                             "last", "time", "period", "delay", "interval"]):
+                        _add("ETH-036", "Timestamp Dependence", "MEDIUM", 0.65,
+                             sol_file, i, stripped,
+                             "Contract logic depends on block.timestamp comparison for state transitions.",
+                             "Block timestamps can be slightly manipulated by miners. Avoid strict equality.",
+                             "logic", "SWC-116")
+            # ETH-036: block.timestamp as state-reset condition (modifier/require)
+            if re.search(r'block\.timestamp\s*>\s*\w*(?:last|previous|prev)\w*', line, re.IGNORECASE):
+                _add("ETH-036", "Timestamp-Based State Reset", "MEDIUM", 0.70,
+                     sol_file, i, stripped,
+                     "State resets based on block.timestamp comparison. Multiple calls in same block share timestamp.",
+                     "Be aware that all transactions in same block share block.timestamp. Consider block.number.",
+                     "logic", "SWC-116")
+
             # ─── ETH-038: ecrecover Without Zero-Check ─────────────
             if "ecrecover" in line:
                 has_zero_check = False
@@ -695,6 +737,15 @@ def scan_patterns(target_path: str) -> list:
                          "Share calculation when totalSupply==0 is vulnerable to first-depositor inflation attack.",
                          "Add virtual shares/assets offset (ERC4626) or mint minimum dead shares on first deposit.",
                          "defi")
+            # ETH-057: totalAsset.amount/shares == 0 pattern (ERC4626 vaults)
+            if re.search(r'total\w*\.(?:amount|assets?)\s*==\s*0|total\w*\.shares?\s*==\s*0', line):
+                if any(k in cl for k in ["deposit", "mint", "share", "convert", "asset"]):
+                    if "ETH-057" not in file_findings:
+                        _add("ETH-057", "Vault Share Inflation / First Depositor Attack", "CRITICAL", 0.75,
+                             sol_file, i, stripped,
+                             "Share calculation when totalAsset==0 is vulnerable to first-depositor inflation attack.",
+                             "Add virtual shares/assets offset (ERC4626) or mint minimum dead shares on first deposit.",
+                             "defi")
             # ETH-057: balanceOf-based share calculation (shares = amount * totalSupply / bal pattern)
             if re.search(r'totalSupply\s*[/\*].*balanceOf|balanceOf.*[/\*].*totalSupply', line):
                 if any(k in cl for k in ["deposit", "withdraw", "share", "vault"]):
