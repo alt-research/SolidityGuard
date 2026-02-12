@@ -22,6 +22,11 @@ LABEL version="1.2.0"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    libcairo2 \
+    libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,9 +34,9 @@ WORKDIR /app
 # Copy scanner scripts
 COPY .claude/skills/solidity-guard/scripts/ /app/scripts/
 
-# Copy and install backend (lightweight: fastapi + uvicorn only)
+# Copy and install backend + PDF dependencies
 COPY apps/web/backend/ /app/backend/
-RUN pip install --no-cache-dir /app/backend/
+RUN pip install --no-cache-dir /app/backend/ weasyprint markdown
 
 # Copy built frontend
 COPY --from=frontend-build /frontend/dist /app/static
