@@ -22,6 +22,8 @@ LABEL version="1.2.0"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    python3-dev \
+    gcc \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf-2.0-0 \
@@ -34,9 +36,10 @@ WORKDIR /app
 # Copy scanner scripts
 COPY .claude/skills/solidity-guard/scripts/ /app/scripts/
 
-# Copy and install backend + PDF dependencies
+# Copy and install backend + PDF dependencies + Slither static analyzer
 COPY apps/web/backend/ /app/backend/
-RUN pip install --no-cache-dir /app/backend/ weasyprint markdown
+RUN pip install --no-cache-dir /app/backend/ weasyprint markdown slither-analyzer solc-select \
+    && solc-select install 0.8.28 && solc-select use 0.8.28
 
 # Copy built frontend
 COPY --from=frontend-build /frontend/dist /app/static

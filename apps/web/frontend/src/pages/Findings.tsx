@@ -6,7 +6,7 @@ import { api } from '../services/api.ts'
 import ScoreBanner from '../components/ScoreBanner.tsx'
 import FilterBar from '../components/FilterBar.tsx'
 import FindingCard from '../components/FindingCard.tsx'
-import { FileText, Loader2 } from 'lucide-react'
+import { FileText, Loader2, Download } from 'lucide-react'
 
 export default function Findings() {
   const { id } = useParams()
@@ -98,6 +98,20 @@ export default function Findings() {
           findingsCount={findingsCount}
           filesCount={filesCount}
         />
+
+        <div className="flex items-center gap-2 text-[13px] text-accent bg-accent/10 border border-accent/20 rounded-xl px-4 py-3">
+          <Download className="w-4 h-4 flex-shrink-0" />
+          <span>
+            Web scans use pattern matching and Slither. For deeper analysis with Mythril, Echidna, Foundry, and formal verification,{' '}
+            <a href="https://github.com/alt-research/SolidityGuard/releases" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-primary">
+              download the desktop app
+            </a>
+            {' '}or install the{' '}
+            <a href="https://github.com/alt-research/SolidityGuard#cli" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-primary">
+              CLI
+            </a>.
+          </span>
+        </div>
 
         <FilterBar
           selectedSeverities={selectedSeverities}
