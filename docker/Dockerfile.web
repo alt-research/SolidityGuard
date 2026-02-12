@@ -22,33 +22,14 @@ LABEL version="1.2.0"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    git \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf-2.0-0 \
-    libffi-dev \
-    libcairo2 \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Foundry (optional — used for forge verify, not required for web UI)
-RUN curl -L https://foundry.paradigm.xyz | bash && \
-    /root/.foundry/bin/foundryup || true
-ENV PATH="/root/.foundry/bin:${PATH}"
-
-# Install security tools (optional — heavy deps, may fail in constrained environments)
-RUN pip install --no-cache-dir slither-analyzer || true
-RUN pip install --no-cache-dir mythril || true
-
-# Install PDF generation (required — must succeed, separated to avoid cache issues)
-RUN pip install --no-cache-dir weasyprint markdown && \
-    python3 -c "import weasyprint; print('weasyprint OK')"
 
 WORKDIR /app
 
 # Copy scanner scripts
 COPY .claude/skills/solidity-guard/scripts/ /app/scripts/
 
-# Copy and install backend
+# Copy and install backend (lightweight: fastapi + uvicorn only)
 COPY apps/web/backend/ /app/backend/
 RUN pip install --no-cache-dir /app/backend/
 
@@ -60,4 +41,5 @@ COPY knowledge-base/ /app/knowledge-base/
 
 EXPOSE 8000
 
+# Use single worker to minimize memory; add --workers N if needed
 CMD ["uvicorn", "solidityguard_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
