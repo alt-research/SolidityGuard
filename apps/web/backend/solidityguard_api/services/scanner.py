@@ -344,6 +344,14 @@ def check_tool(name: str) -> ToolStatus:
         "halmos": "halmos",
         "certora": "certoraRun",
     }
+
+    # EVMBench: check for the local benchmark script
+    if name == "evmbench":
+        evmbench_script = _SCANNER_PATH.parent / "evmbench_local_benchmark.py"
+        available = evmbench_script.exists()
+        version = "Local (40 audits, 120 vulns)" if available else None
+        return ToolStatus(name=name, available=available, version=version)
+
     binary = cmd_map.get(name, name)
     available = shutil.which(binary) is not None
     version = None
@@ -356,4 +364,4 @@ def check_tool(name: str) -> ToolStatus:
     return ToolStatus(name=name, available=available, version=version)
 
 
-ALL_TOOLS = ["slither", "aderyn", "mythril", "foundry", "echidna", "medusa", "halmos", "certora"]
+ALL_TOOLS = ["slither", "aderyn", "mythril", "foundry", "echidna", "medusa", "halmos", "certora", "evmbench"]

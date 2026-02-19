@@ -34,6 +34,11 @@ def get_benchmark_path() -> Path:
     return get_scripts_dir() / "ctf_benchmark.py"
 
 
+def get_evmbench_path() -> Path:
+    """Return the path to evmbench_local_benchmark.py."""
+    return get_scripts_dir() / "evmbench_local_benchmark.py"
+
+
 # Vulnerability pattern categories and their ETH-ID ranges
 PATTERN_CATEGORIES = {
     "reentrancy": {
@@ -317,5 +322,12 @@ TOOLS = {
         "check_args": ["--version"],
         "install": "pip install certora-cli",
         "description": "Formal verification with CVL rules",
+    },
+    "evmbench": {
+        "name": "EVMBench",
+        "command": "__evmbench_script__",
+        "check_args": [],
+        "install": "git clone https://github.com/openai/frontier-evals && pip install -e frontier-evals/project/evmbench",
+        "description": "Smart contract audit benchmark (OpenAI, 40 audits / 120 vulns)",
     },
 }

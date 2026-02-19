@@ -20,6 +20,7 @@ pub struct ToolStatus {
     pub forge: bool,
     pub docker: bool,
     pub python3: bool,
+    pub evmbench: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,6 +119,9 @@ async fn select_contracts_dir(app: tauri::AppHandle) -> Result<String, String> {
 /// Checks whether security tools are available in PATH.
 #[tauri::command]
 fn check_tools() -> Result<ToolStatus, String> {
+    // Check EVMBench: look for the local benchmark script
+    let evmbench_available = find_evmbench_script().is_some();
+
     Ok(ToolStatus {
         native_scanner: find_scanner_binary().is_some(),
         slither: is_tool_available("slither"),
@@ -126,6 +130,7 @@ fn check_tools() -> Result<ToolStatus, String> {
         forge: is_tool_available("forge"),
         docker: is_tool_available("docker"),
         python3: find_python().is_some(),
+        evmbench: evmbench_available,
     })
 }
 
@@ -464,6 +469,36 @@ fn find_tool_path(tool: &str) -> Option<String> {
 fn find_python() -> Option<String> {
     // python3 first, then python
     find_tool_path("python3").or_else(|| find_tool_path("python"))
+}
+
+/// Find the EVMBench local benchmark script.
+fn find_evmbench_script() -> Option<PathBuf> {
+    let candidates = vec![
+        ".claude/skills/solidity-guard/scripts/evmbench_local_benchmark.py".to_string(),
+        "/app/scripts/evmbench_local_benchmark.py".to_string(),
+    ];
+
+    for candidate in &candidates {
+        if PathBuf::from(candidate).exists() {
+            return Some(PathBuf::from(candidate));
+        }
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        let p = PathBuf::from(&home)
+            .join(".claude/skills/solidity-guard/scripts/evmbench_local_benchmark.py");
+        if p.exists() {
+            return Some(p);
+        }
+        // Also check github/solidity-audit repo
+        let p = PathBuf::from(&home)
+            .join("github/solidity-audit/.claude/skills/solidity-guard/scripts/evmbench_local_benchmark.py");
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    None
 }
 
 fn has_any_local_tool(tools: &[String]) -> bool {

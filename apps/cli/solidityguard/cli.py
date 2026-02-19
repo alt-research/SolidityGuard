@@ -14,6 +14,7 @@ from solidityguard.config import (
     PATTERN_CATEGORIES,
     TOOLS,
     get_benchmark_path,
+    get_evmbench_path,
     get_scripts_dir,
 )
 from solidityguard.scanner import (
@@ -299,6 +300,60 @@ def benchmark(paradigm, run_all):
 
 
 @cli.command()
+@click.option("--mode", "-m", type=click.Choice(["detect", "exploit", "patch"]),
+              default="detect", help="EVMBench evaluation mode.", show_default=True)
+@click.option("--audit", "-a", default=None, help="Run a single audit by ID (e.g. 2024-01-curves).")
+@click.option("--dry-run", is_flag=True, help="Show ground truth mapping without cloning/scanning.")
+@click.option("--output", "-f", "output_format", type=click.Choice(["text", "json"]),
+              default="text", help="Output format.", show_default=True)
+@click.option("--verbose", "-v", is_flag=True, help="Show scanner findings for each audit.")
+def evmbench(mode, audit, dry_run, output_format, verbose):
+    """Run EVMBench smart contract audit benchmark (40 audits, 120 vulns).
+
+    Modes: detect (local scanner), exploit (on-chain PoC), patch (code fix).
+    """
+    print_banner()
+    console.print(f"  Running EVMBench Benchmark (mode={mode})...")
+    console.print()
+
+    if mode == "detect":
+        # Local benchmark — uses scan_patterns() directly
+        evmbench_script = str(get_evmbench_path())
+        if not Path(evmbench_script).exists():
+            console.print(f"  [red]EVMBench script not found: {evmbench_script}[/red]")
+            return
+        cmd = [sys.executable, evmbench_script, "--output", output_format]
+        if audit:
+            cmd.extend(["--audit", audit])
+        if dry_run:
+            cmd.append("--dry-run")
+        if verbose:
+            cmd.append("--verbose")
+    else:
+        # Exploit/Patch — uses evmbench_runner.py (requires nanoeval framework)
+        runner_script = str(get_scripts_dir() / "evmbench_runner.py")
+        if not Path(runner_script).exists():
+            console.print(f"  [red]EVMBench runner not found: {runner_script}[/red]")
+            return
+        cmd = [sys.executable, runner_script, "--mode", mode]
+        if audit:
+            cmd.extend(["--audit", audit])
+        if dry_run:
+            cmd.append("--dry-run")
+
+    try:
+        result = subprocess.run(
+            cmd, capture_output=False, text=True, timeout=36000,
+        )
+        if result.returncode != 0:
+            console.print(f"\n  [red]EVMBench exited with code {result.returncode}[/red]")
+    except subprocess.TimeoutExpired:
+        console.print("\n  [red]EVMBench timed out after 10h[/red]")
+    except FileNotFoundError:
+        console.print("\n  [red]Python interpreter not found[/red]")
+
+
+@cli.command()
 @click.option("--category", "-c", help="Filter by category name.")
 def patterns(category):
     """List all 104 vulnerability patterns."""
@@ -317,6 +372,18 @@ def tools():
 
     tools_status = {}
     for key, info in TOOLS.items():
+        if key == "evmbench":
+            # EVMBench: check for the local benchmark script
+            evmbench_available = get_evmbench_path().exists()
+            evmbench_version = "Local (40 audits, 120 vulns)" if evmbench_available else ""
+            tools_status[key] = {
+                "display_name": info["name"],
+                "available": evmbench_available,
+                "version": evmbench_version,
+                "description": info["description"],
+                "install": info["install"],
+            }
+            continue
         available, version = check_tool(info["command"], info["check_args"])
         tools_status[key] = {
             "display_name": info["name"],
