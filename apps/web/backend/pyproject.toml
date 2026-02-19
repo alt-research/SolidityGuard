@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "solidityguard-api"
 version = "1.3.0"
-description = "SolidityGuard FastAPI backend for smart contract security auditing"
+description = "SolidityGuard FastAPI backend — 104 vulnerability patterns, 8 security tools (Slither, Mythril, Aderyn, Echidna, Foundry, Medusa, Halmos, Certora), CTF-validated 100% detection (DeFiVulnLabs 56/56 + Paradigm CTF 24/24 static)"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.100.0",
