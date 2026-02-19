@@ -1,6 +1,6 @@
 [package]
 name = "solidityguard-desktop"
-version = "1.2.0"
+version = "1.2.1"
 description = "SolidityGuard Desktop - Smart Contract Security Audit Tool"
 edition = "2021"
 

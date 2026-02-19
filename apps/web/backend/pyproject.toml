@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "solidityguard-api"
-version = "1.2.0"
+version = "1.2.1"
 description = "SolidityGuard FastAPI backend for smart contract security auditing"
 requires-python = ">=3.10"
 dependencies = [

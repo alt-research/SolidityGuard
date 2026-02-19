@@ -1,0 +1,27 @@
+env-config-vars: &env-config-vars
+  ANTHROPIC_BASE_URL: https://api.anthropic.com
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  MODEL: claude-opus-4-6
+
+common: &common_settings
+  start: solidityguard/start.sh
+  instruction_file_name: CLAUDE.md
+  gateway_sni_hosts:
+    - api.anthropic.com
+
+solidityguard-default:
+  <<: *common_settings
+  env_vars:
+    <<: *env-config-vars
+
+solidityguard-opus-4.6:
+  <<: *common_settings
+  env_vars:
+    <<: *env-config-vars
+    MODEL: claude-opus-4-6
+
+solidityguard-sonnet-4.6:
+  <<: *common_settings
+  env_vars:
+    <<: *env-config-vars
+    MODEL: claude-sonnet-4-6

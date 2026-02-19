@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nickelpack/tauri/v2/crates/tauri-config-schema/schema.json",
   "productName": "SolidityGuard",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "identifier": "com.solidityguard.desktop",
   "build": {
     "devUrl": "http://localhost:5173",

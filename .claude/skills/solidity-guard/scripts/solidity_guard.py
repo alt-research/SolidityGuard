@@ -1005,6 +1005,22 @@ def scan_patterns(target_path: str) -> list:
                          "Use >= or <= instead of == for balance checks. Never assume exact balance.",
                          "logic", "SWC-132")
 
+            # ETH-032 variant: msg.value partially used without refund
+            # Pattern: msg.value compared with < (partial usage), .call{value: X} uses subset
+            if "msg.value" in line and re.search(r'msg\.value\s*<\s*\w|msg\.value\s*>=?\s*\w|\w+\s*<\s*msg\.value', line):
+                # Look in wider context for .call{value: not-msg.value}
+                ctx = " ".join(lines[max(0,i-3):min(len(lines),i+20)])
+                if re.search(r'\.call\{value:\s*(?!msg\.value)\w', ctx):
+                    # Check function-level context for refund of excess
+                    func_ctx = " ".join(lines[max(0,i-10):min(len(lines),i+40)])
+                    has_refund = re.search(r'msg\.value\s*-\s*\w|excess|remaining.*refund|refund.*remaining|\.call\{value:\s*msg\.value\s*-', func_ctx, re.I)
+                    if not has_refund:
+                        _add("ETH-032", "Excess msg.value Not Refunded", "HIGH", 0.70,
+                             sol_file, i, stripped,
+                             "Function receives msg.value but only forwards a partial amount via .call{value: X}. Excess ETH may become stuck in the contract.",
+                             "Refund excess msg.value to msg.sender: payable(msg.sender).call{value: msg.value - used}(\"\").",
+                             "logic", "SWC-132")
+
             # ─── ETH-033: Write to Arbitrary Storage ──────────────
             # Array length manipulation (Solidity < 0.6.0)
             if is_old_pragma and re.search(r'\.\s*length\s*[-+]?=', line):
