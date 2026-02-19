@@ -455,6 +455,7 @@ jobs:
             - **Multi-agent team architecture** — 9 specialized sub-agents working in parallel
             - **Professional reports** — OpenZeppelin / Trail of Bits style (Markdown + PDF)
             - **Real-time progress** — WebSocket streaming for live audit updates
+            - **EVMBench integration** — detect, patch, and exploit modes for benchmark evaluation
             - **OWASP 2025 aligned** — covers all Smart Contract Top 10 categories
 
             ### Benchmarks
@@ -468,6 +469,7 @@ jobs:
             | R3CTF 2025 | 2/2 challenges (100%) |
             | HTB Cyber Apocalypse 2025 | 3/3 challenges (100%) |
             | **Combined** | **85/85 (100%)** |
+            | EVMBench Exploit | 24/24 audits (100%) |
 
             ### System Requirements
 
