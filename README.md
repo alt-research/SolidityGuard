@@ -39,7 +39,7 @@
 ## Features
 
 - **104 Vulnerability Patterns** (ETH-001 to ETH-104) — from real audits, exploits, SWC Registry, OWASP 2025, and 2025-2026 research
-- **8-Tool Integration** — Slither, Mythril, Echidna, Aderyn, Foundry v1.0, Medusa v1, Halmos, Certora
+- **9-Tool Integration** — Slither, Mythril, Echidna, Aderyn, Foundry v1.0, Medusa v1, Halmos, Certora, EVMBench
 - **3 Application Surfaces** — CLI, Web ([solidityguard.org](https://solidityguard.org)), Desktop (Tauri v2)
 - **Docker Support** — scan locally with zero setup, your code never leaves your machine
 - **Professional Reports** — OpenZeppelin/Trail of Bits-style Markdown + PDF with severity scoring
@@ -129,8 +129,11 @@ solidityguard audit ./contracts           # Full audit
 solidityguard audit --quick ./contracts   # Pattern-only scan
 solidityguard scan ./contracts --category reentrancy
 solidityguard report findings.json -o report.md
+solidityguard benchmark --all             # CTF benchmark (85/85)
+solidityguard evmbench                    # EVMBench benchmark (120/120)
+solidityguard evmbench --mode exploit     # EVMBench exploit mode
 solidityguard patterns                    # List all 104 patterns
-solidityguard tools                       # Check installed tools
+solidityguard tools                       # Check installed tools (9 tools)
 ```
 
 ### Desktop
@@ -237,7 +240,7 @@ See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for a complete exampl
 ┌──────────────────────────────────────────────────┐
 │              TOOL LAYER                          │
 │  Slither │ Mythril │ Aderyn │ Echidna │ Medusa   │
-│  Foundry v1.0 │ Halmos │ Certora │ Report Gen.  │
+│  Foundry v1.0 │ Halmos │ Certora │ EVMBench     │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -253,6 +256,7 @@ See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for a complete exampl
 | **Foundry v1.0** | Test + fuzz + fork | Fast | Invariant tests |
 | **Halmos** | Formal verification | Minutes | a16z symbolic testing |
 | **Certora** | Formal verification | Minutes | CVL rules |
+| **EVMBench** | Audit benchmark | Variable | 40 audits, 120 vulns |
 
 ## 7-Phase Deep Audit
 
@@ -311,7 +315,8 @@ Phase 7: Report & Remediation  ─► Professional report + fixed code samples
 | `slither_runner.py` | Slither integration |
 | `report_generator.py` | Professional Markdown + PDF report |
 | `verify_findings.py` | Finding verification prompts |
-| `evmbench_local_benchmark.py` | EVMBench benchmark runner (40 audits, 120 vulns) |
+| `evmbench_local_benchmark.py` | EVMBench local benchmark (detect mode, 40 audits, 120 vulns) |
+| `evmbench_runner.py` | EVMBench full runner (detect / exploit / patch via nanoeval) |
 | `test_scanners.py` | Test suite (43 tests) |
 
 All scripts are located in [`.claude/skills/solidity-guard/scripts/`](.claude/skills/solidity-guard/scripts/).

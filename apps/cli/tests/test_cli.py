@@ -162,8 +162,23 @@ class TestCLIVersion(unittest.TestCase):
     def test_version(self):
         result = self.runner.invoke(cli, ["version"])
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("1.2.2", result.output)
+        self.assertIn("1.3.0", result.output)
         self.assertIn("104", result.output)
+
+
+class TestCLIEvmbench(unittest.TestCase):
+    """Tests for the 'evmbench' command."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def test_evmbench_help(self):
+        result = self.runner.invoke(cli, ["evmbench", "--help"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("EVMBench", result.output)
+        self.assertIn("detect", result.output)
+        self.assertIn("exploit", result.output)
+        self.assertIn("patch", result.output)
 
 
 if __name__ == "__main__":
