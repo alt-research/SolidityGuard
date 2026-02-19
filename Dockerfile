@@ -9,7 +9,7 @@ FROM python:3.12-slim AS base
 
 LABEL maintainer="Alt Research Ltd."
 LABEL description="SolidityGuard — Solidity smart contract security audit"
-LABEL version="1.2.1"
+LABEL version="1.2.2"
 
 # System deps for weasyprint PDF generation + build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \

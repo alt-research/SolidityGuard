@@ -32,7 +32,7 @@ class TestHealthEndpoint(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["version"], "1.2.1")
+        self.assertEqual(data["version"], "1.2.2")
         self.assertIn("timestamp", data)
 
 
