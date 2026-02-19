@@ -35,7 +35,6 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
@@ -134,7 +133,7 @@ def run_evmbench(
     """Run EVMBench evaluation."""
     tasks = list_tasks(evmbench_dir, mode, audit)
     print(f"\n{'='*60}")
-    print(f"EVMBench Runner — SolidityGuard")
+    print("EVMBench Runner — SolidityGuard")
     print(f"{'='*60}")
     print(f"Mode: {mode}")
     print(f"Agent: {agent_id}")

@@ -21,12 +21,10 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 # Add parent dir so we can import solidity_guard
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -473,7 +471,7 @@ def run_benchmark_for_audit(
         try:
             findings = scan_patterns(src_dir)
             all_findings.extend(findings)
-        except Exception as e:
+        except Exception:
             pass  # Some dirs may fail, that's OK
 
     # If no findings from specific dirs, try the whole repo
@@ -567,7 +565,7 @@ def print_summary(benchmarks: list):
                     category_stats[cat]["hits"] += 1
 
     if category_stats:
-        print(f"\nPer-Category Detection:")
+        print("\nPer-Category Detection:")
         print(f"  {'Category':<30} {'Hits':>5} {'Total':>6} {'Rate':>7}")
         print(f"  {'-'*30} {'-'*5} {'-'*6} {'-'*7}")
         for cat in sorted(category_stats.keys()):
@@ -584,7 +582,7 @@ def print_summary(benchmarks: list):
 
     if missed:
         missed.sort(reverse=True)
-        print(f"\nTop 10 Highest-Award Missed Vulnerabilities:")
+        print("\nTop 10 Highest-Award Missed Vulnerabilities:")
         for award, audit, vid, title in missed[:10]:
             print(f"  ${award:>10,.2f}  {audit}/{vid}: {title}")
 
