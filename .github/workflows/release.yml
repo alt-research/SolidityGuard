@@ -410,7 +410,7 @@ jobs:
             |-----------|-------------|
             | **Desktop App** | Native desktop application (Tauri v2) for Windows, macOS, and Linux |
             | **Web App** | React frontend + FastAPI backend — deployed at [solidityguard.org](https://solidityguard.org) |
-            | **CLI** | Python CLI tool (`pip install solidityguard`) for terminal-based auditing |
+            | **CLI** | Python CLI tool for terminal-based auditing (download `.whl` from release assets) |
             | **OpenClaw Skill** | AI agent skill for [OpenClaw](https://openclaw.ai) — install via ClawHub |
 
             ---
@@ -428,11 +428,16 @@ jobs:
             ### CLI Install
 
             ```bash
-            pip install solidityguard
+            # Download .whl from release assets, then:
+            pip install solidityguard-*.whl
             solidityguard audit ./contracts
             ```
 
-            Or download the `.tar.gz` / `.whl` from this release.
+            Or install from source:
+            ```bash
+            git clone https://github.com/alt-research/SolidityGuard.git
+            cd SolidityGuard/apps/cli && pip install -e .
+            ```
 
             ### OpenClaw Skill Install
 
@@ -488,7 +493,8 @@ jobs:
 
             **CLI:**
             ```bash
-            pip install solidityguard
+            # Install from release .whl or from source
+            pip install solidityguard-*.whl
             solidityguard audit ./contracts --mode full
             solidityguard report --input findings.json --output report.md
             ```
