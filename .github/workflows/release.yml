@@ -400,7 +400,7 @@ jobs:
           body: |
             ## SolidityGuard ${{ github.ref_name }}
 
-            Smart contract security audit tool with **104 vulnerability patterns**, **8 analysis tools**, **multi-agent team architecture**, and **100% detection rate** on 85/85 CTF benchmark challenges (DeFiVulnLabs + Paradigm CTF + R3CTF 2025 + HTB Cyber Apocalypse 2025).
+            Smart contract security audit tool with **104 vulnerability patterns**, **9 analysis tools**, **multi-agent team architecture**, and **100% detection rate** on 85/85 CTF benchmark challenges (DeFiVulnLabs + Paradigm CTF + R3CTF 2025 + HTB Cyber Apocalypse 2025).
 
             ---
 
@@ -455,7 +455,7 @@ jobs:
 
             - **104 vulnerability patterns** (ETH-001 to ETH-104) covering reentrancy, access control, DeFi, proxy, oracle, transient storage, EIP-7702, ERC-4337, and more
             - **50+ pattern detectors** with 100% benchmark detection rate
-            - **8-tool integration** — Slither, Aderyn, Mythril, Foundry, Echidna, Medusa, Halmos, Certora
+            - **9-tool integration** — Slither, Aderyn, Mythril, Foundry, Echidna, Medusa, Halmos, Certora, EVMBench
             - **7-phase deep audit** — scan, verify, parallel agents, exploit PoC, dynamic verification, fuzz, report
             - **Multi-agent team architecture** — 9 specialized sub-agents working in parallel
             - **Professional reports** — OpenZeppelin / Trail of Bits style (Markdown + PDF)
@@ -474,7 +474,7 @@ jobs:
             | R3CTF 2025 | 2/2 challenges (100%) |
             | HTB Cyber Apocalypse 2025 | 3/3 challenges (100%) |
             | **Combined** | **85/85 (100%)** |
-            | EVMBench Exploit | 24/24 audits (100%) |
+            | EVMBench | 120/120 vulns across 40 audits (100%) |
 
             ### System Requirements
 

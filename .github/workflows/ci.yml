@@ -7,13 +7,13 @@ on:
       - '.claude/skills/solidity-guard/scripts/**'
       - 'apps/cli/**'
       - 'apps/web/**'
-      - '.github/workflows/audit.yml'
+      - '.github/workflows/ci.yml'
   pull_request:
     paths:
       - '.claude/skills/solidity-guard/scripts/**'
       - 'apps/cli/**'
       - 'apps/web/**'
-      - '.github/workflows/audit.yml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
         run: pip install ruff
 
       - name: Lint Python
-        run: ruff check .claude/skills/solidity-guard/scripts/ apps/web/backend/
+        run: ruff check .claude/skills/solidity-guard/scripts/ apps/cli/ apps/web/backend/
 
   # ── Scanner Tests & Benchmark ────────────────────────────────────────
   tests:
@@ -48,10 +48,15 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pytest
+        run: |
+          pip install pytest
+          pip install -e apps/cli
 
-      - name: Run unit tests
+      - name: Run scanner tests
         run: python3 -m pytest .claude/skills/solidity-guard/scripts/test_scanners.py -v
+
+      - name: Run CLI tests
+        run: python3 -m pytest apps/cli/tests/test_cli.py -v
 
       - name: Run DeFiVulnLabs benchmark
         run: |
@@ -143,7 +148,12 @@ jobs:
           python-version: '3.11'
 
       - name: Install backend
-        run: pip install -e apps/web/backend
+        run: |
+          pip install -e apps/web/backend
+          pip install pytest httpx
 
       - name: Test import
         run: python3 -c "from solidityguard_api.main import app; print('Backend OK')"
+
+      - name: Run API tests
+        run: python3 -m pytest apps/web/backend/tests/ -v

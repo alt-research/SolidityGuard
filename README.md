@@ -13,7 +13,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Patterns-104-blue?style=flat-square" alt="104 Patterns" />
-  <img src="https://img.shields.io/badge/Tools-8-blue?style=flat-square" alt="8 Tools" />
+  <img src="https://img.shields.io/badge/Tools-9-blue?style=flat-square" alt="9 Tools" />
   <img src="https://img.shields.io/badge/CTF%20Benchmark-85%2F85%20(100%25)-brightgreen?style=flat-square" alt="CTF 85/85 100%" />
   <img src="https://img.shields.io/badge/DeFiVulnLabs-56%2F56-brightgreen?style=flat-square" alt="DeFiVulnLabs 100%" />
   <img src="https://img.shields.io/badge/Paradigm%20CTF-24%2F24-brightgreen?style=flat-square" alt="Paradigm CTF 100%" />
