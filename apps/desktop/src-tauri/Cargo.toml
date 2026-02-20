@@ -1,7 +1,7 @@
 [package]
 name = "solidityguard-desktop"
-version = "1.3.1"
-description = "SolidityGuard Desktop — 104 vulnerability patterns, 8 security tools (Slither, Mythril, Aderyn, Echidna, Foundry, Medusa, Halmos, Certora), CTF-validated 100% detection"
+version = "1.3.2"
+description = "SolidityGuard Desktop — 104 vulnerability patterns, 9 security tools (Slither, Mythril, Aderyn, Echidna, Foundry, Medusa, Halmos, Certora, EVMBench), CTF-validated 100% detection"
 edition = "2021"
 
 [build-dependencies]

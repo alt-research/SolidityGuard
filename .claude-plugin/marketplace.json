@@ -1,6 +1,6 @@
 {
   "name": "solidity-guard",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "A collection of SolidityGuard Claude Code plugins",
   "owner": {
     "name": "alt-research",
@@ -10,7 +10,7 @@
     {
       "name": "solidity-guard",
       "description": "Advanced Solidity/EVM smart contract security audit agent. Detects 104 vulnerability patterns (ETH-001 to ETH-104) with multi-agent architecture, 9-tool integration, and professional report generation.",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "source": "./plugins/solidity-guard",
       "category": "security",
       "author": {
