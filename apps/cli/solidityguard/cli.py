@@ -296,7 +296,7 @@ def benchmark(paradigm, run_all):
     except subprocess.TimeoutExpired:
         console.print("\n  [red]Benchmark timed out after 600s[/red]")
     except FileNotFoundError:
-        console.print(f"\n  [red]Python interpreter not found[/red]")
+        console.print("\n  [red]Python interpreter not found[/red]")
 
 
 @cli.command()
@@ -475,6 +475,6 @@ def version():
     """Show SolidityGuard version information."""
     print_banner()
     console.print(f"  Version:  {__version__}")
-    console.print(f"  Patterns: 104 (ETH-001 to ETH-104)")
-    console.print(f"  Detectors: 50+")
-    console.print(f"  Benchmarks: DeFiVulnLabs 56/56 | Paradigm CTF 24/24")
+    console.print("  Patterns: 104 (ETH-001 to ETH-104)")
+    console.print("  Detectors: 50+")
+    console.print("  Benchmarks: DeFiVulnLabs 56/56 | Paradigm CTF 24/24")

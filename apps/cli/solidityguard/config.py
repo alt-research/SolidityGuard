@@ -1,6 +1,5 @@
 """CLI configuration and path resolution."""
 
-import os
 from pathlib import Path
 
 
