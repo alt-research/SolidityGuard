@@ -1068,13 +1068,28 @@ def scan_patterns(target_path: str) -> list:
             # ─── ETH-049: Missing _disableInitializers ────────────
             if "Initializable" in line or ("initializer" in line and "modifier" not in line):
                 if "ETH-049" not in file_findings:
-                    if "function initialize" in cl and "_disableInitializers" not in cl:
-                        _add("ETH-049", "Missing _disableInitializers in Constructor", "CRITICAL", 0.80,
-                             sol_file, i, stripped,
-                             "Initializable contract without _disableInitializers() in constructor. Implementation can be initialized by attacker.",
-                             "Add constructor() { _disableInitializers(); } to prevent implementation takeover.",
-                             "proxy")
-                        file_findings.add("ETH-049")
+                    if "function initialize" in cl and "_disableinitializers" not in cl:
+                        # Check constructor scope for _disableInitializers call
+                        has_disable_in_constructor = False
+                        for j in range(1, len(lines) + 1):
+                            ctx = lines[j - 1]
+                            if "constructor" in ctx.lower():
+                                # Scan constructor body (next 15 lines)
+                                for k in range(j, min(j + 15, len(lines) + 1)):
+                                    cline = lines[k - 1]
+                                    if "_disableInitializers" in cline or "_disableinitializers" in cline.lower():
+                                        has_disable_in_constructor = True
+                                        break
+                                    if k > j and re.match(r'\s*(function\s|modifier\s|event\s)', cline):
+                                        break
+                                break
+                        if not has_disable_in_constructor:
+                            _add("ETH-049", "Missing _disableInitializers in Constructor", "CRITICAL", 0.80,
+                                 sol_file, i, stripped,
+                                 "Initializable contract without _disableInitializers() in constructor. Implementation can be initialized by attacker.",
+                                 "Add constructor() { _disableInitializers(); } to prevent implementation takeover.",
+                                 "proxy")
+                            file_findings.add("ETH-049")
 
             # ─── ETH-045: Missing Zero Address Check ──────────────
             if re.search(r'function\s+\w*(set|update|change|transfer)\w*(Owner|Admin|Manager|Address)\w*\s*\(', line, re.IGNORECASE):

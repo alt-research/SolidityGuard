@@ -339,6 +339,50 @@ contract Implementation {
             self.assertTrue(len(hits) > 0, "Should detect selfdestruct in implementation")
 
 
+class TestCTFProxy(unittest.TestCase):
+    """CTF: Proxy/upgrade patterns including ETH-049."""
+
+    def test_eth049_missing_disable_initializers(self):
+        """ETH-049 should fire when Initializable contract has no _disableInitializers."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sol_file = Path(tmpdir) / "Test.sol"
+            sol_file.write_text("""
+pragma solidity 0.8.20;
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+contract Vulnerable is Initializable {
+    uint public value;
+    function initialize(uint v) public initializer {
+        value = v;
+    }
+}
+""")
+            findings = scan_patterns(tmpdir)
+            hits = [f for f in findings if f.id == "ETH-049"]
+            self.assertTrue(len(hits) > 0, "Should detect missing _disableInitializers")
+
+    def test_eth049_no_false_positive_with_disable_initializers(self):
+        """ETH-049 should NOT fire when constructor calls _disableInitializers (Issue #3)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sol_file = Path(tmpdir) / "Test.sol"
+            sol_file.write_text("""
+pragma solidity 0.8.20;
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+contract Safe is Initializable {
+    uint public value;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    function initialize(uint v) public initializer {
+        value = v;
+    }
+}
+""")
+            findings = scan_patterns(tmpdir)
+            hits = [f for f in findings if f.id == "ETH-049"]
+            self.assertEqual(len(hits), 0, "Should NOT flag ETH-049 when _disableInitializers is called in constructor")
+
+
 class TestCTFTransientStorage(unittest.TestCase):
     """CTF: EIP-1153 transient storage patterns from SIR.trading exploit."""
 
