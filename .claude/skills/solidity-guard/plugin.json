@@ -1,0 +1,35 @@
+{
+  "name": "solidity-guard",
+  "version": "1.3.1",
+  "description": "Advanced Solidity/EVM smart contract security audit agent. 104 vulnerability patterns (ETH-001 to ETH-104) from reentrancy to EIP-7702, covering OWASP Smart Contract Top 10 2025. 8 security tools: Slither, Mythril, Aderyn, Echidna, Foundry, Medusa, Halmos, Certora. CTF-validated: 100% detection on DeFiVulnLabs (56/56), Paradigm CTF (24/24 static), R3CTF 2025, HTB Cyber Apocalypse 2025 — 85/85 total.",
+  "author": {
+    "name": "SolidityGuard",
+    "url": "https://github.com/alt-research/SolidityGuard"
+  },
+  "repository": "https://github.com/alt-research/SolidityGuard",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "evm",
+    "security",
+    "audit",
+    "smart-contract",
+    "vulnerability",
+    "defi",
+    "blockchain",
+    "slither",
+    "mythril",
+    "echidna",
+    "foundry",
+    "medusa",
+    "halmos",
+    "certora",
+    "aderyn"
+  ],
+  "categories": [
+    "security",
+    "blockchain",
+    "audit"
+  ]
+}
