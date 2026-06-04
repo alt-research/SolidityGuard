@@ -106,7 +106,7 @@ export default function Settings() {
               <ExternalLink className="w-3 h-3" />
             </a>
             <a
-              href="https://solidityguard.org"
+              href="https://solidityguard.altllm.ai"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface/50 text-[12px] text-text-secondary hover:text-text-primary transition-colors no-underline"

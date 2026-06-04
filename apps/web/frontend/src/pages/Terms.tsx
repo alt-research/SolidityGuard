@@ -176,12 +176,12 @@ export default function Terms() {
         <div className="pt-4 border-t border-border text-[11px] text-text-secondary">
           Alt Research Ltd. &mdash;{' '}
           <a
-            href="https://solidityguard.org"
+            href="https://solidityguard.altllm.ai"
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent hover:text-accent-hover transition-colors"
           >
-            solidityguard.org
+            solidityguard.altllm.ai
           </a>
         </div>
       </div>

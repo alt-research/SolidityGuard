@@ -16,7 +16,7 @@ assignees: ""
 
 - [ ] Scanner / Pattern Detection
 - [ ] CLI
-- [ ] Web App (solidityguard.org)
+- [ ] Web App (solidityguard.altllm.ai)
 - [ ] Desktop App (Tauri)
 - [ ] Report Generator
 - [ ] Tool Integration (Slither, Mythril, Echidna, Aderyn, Foundry, Medusa, Halmos, Certora)
