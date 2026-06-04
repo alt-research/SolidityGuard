@@ -409,7 +409,7 @@ jobs:
             | Component | Description |
             |-----------|-------------|
             | **Desktop App** | Native desktop application (Tauri v2) for Windows, macOS, and Linux |
-            | **Web App** | React frontend + FastAPI backend — deployed at [solidityguard.org](https://solidityguard.org) |
+            | **Web App** | React frontend + FastAPI backend — deployed at [solidityguard.altllm.ai](https://solidityguard.altllm.ai) |
             | **CLI** | Python CLI tool for terminal-based auditing (download `.whl` from release assets) |
             | **OpenClaw Skill** | AI agent skill for [OpenClaw](https://openclaw.ai) — install via ClawHub |
 

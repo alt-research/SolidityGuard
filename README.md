@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/alt-research/SolidityGuard/actions/workflows/ci.yml"><img src="https://github.com/alt-research/SolidityGuard/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/alt-research/SolidityGuard/releases/latest"><img src="https://img.shields.io/github/v/release/alt-research/SolidityGuard?color=%234f46e5" alt="Latest Release" /></a>
-  <a href="https://solidityguard.org"><img src="https://img.shields.io/badge/Web-solidityguard.org-green" alt="Web App" /></a>
+  <a href="https://solidityguard.altllm.ai"><img src="https://img.shields.io/badge/Web-solidityguard.altllm.ai-green" alt="Web App" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Proprietary-red" alt="License" /></a>
 </p>
 
@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <a href="https://solidityguard.org">Try it now</a> &middot;
+  <a href="https://solidityguard.altllm.ai">Try it now</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="#vulnerability-patterns-104">104 Patterns</a> &middot;
   <a href="https://github.com/alt-research/SolidityGuard/releases">Downloads</a> &middot;
@@ -32,7 +32,7 @@
 
 ---
 
-> **Try it now at [solidityguard.org](https://solidityguard.org)** — scan your Solidity contracts instantly from your browser, no installation required.
+> **Try it now at [solidityguard.altllm.ai](https://solidityguard.altllm.ai)** — scan your Solidity contracts instantly from your browser, no installation required.
 
 > **Need a professional, in-depth audit for your protocol?** Contact us at **maintainers@altresear.ch** — we offer comprehensive manual + AI-assisted security reviews tailored to your codebase.
 
@@ -40,7 +40,7 @@
 
 - **104 Vulnerability Patterns** (ETH-001 to ETH-104) — from real audits, exploits, SWC Registry, OWASP 2025, and 2025-2026 research
 - **9-Tool Integration** — Slither, Mythril, Echidna, Aderyn, Foundry v1.0, Medusa v1, Halmos, Certora, EVMBench
-- **3 Application Surfaces** — CLI, Web ([solidityguard.org](https://solidityguard.org)), Desktop (Tauri v2)
+- **3 Application Surfaces** — CLI, Web ([solidityguard.altllm.ai](https://solidityguard.altllm.ai)), Desktop (Tauri v2)
 - **Docker Support** — scan locally with zero setup, your code never leaves your machine
 - **Professional Reports** — OpenZeppelin/Trail of Bits-style Markdown + PDF with severity scoring
 - **7-Phase Deep Audit** — scan, verify, parallel agents, exploit PoC, dynamic verification, fuzz, report
@@ -105,7 +105,7 @@ SolidityGuard's pattern scanner achieves **100% ground-truth coverage** — dete
 
 ### Web (Fastest)
 
-Visit **[solidityguard.org](https://solidityguard.org)** to start scanning immediately — no setup needed.
+Visit **[solidityguard.altllm.ai](https://solidityguard.altllm.ai)** to start scanning immediately — no setup needed.
 
 ### Docker (Recommended)
 

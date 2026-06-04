@@ -25,7 +25,7 @@ If you discover a security vulnerability in SolidityGuard itself (not in contrac
 ## Scope
 
 This security policy covers:
-- The SolidityGuard web application (solidityguard.org)
+- The SolidityGuard web application (solidityguard.altllm.ai)
 - The SolidityGuard desktop application
 - The SolidityGuard CLI tool
 - The backend API

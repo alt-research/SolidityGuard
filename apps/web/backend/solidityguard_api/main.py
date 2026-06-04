@@ -30,7 +30,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://solidityguard.org",
+        "https://solidityguard.altllm.ai",
         "http://localhost:5173",
         "http://localhost:8000",
         "http://localhost:3000",

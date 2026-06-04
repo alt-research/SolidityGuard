@@ -1,7 +1,7 @@
 ---
 name: solidityguard
 description: "Advanced Solidity/EVM smart contract security auditor with 104 vulnerability patterns, multi-tool integration, and professional report generation."
-metadata: {"openclaw":{"emoji":"🛡️","homepage":"https://solidityguard.org","os":["darwin","linux","win32"],"requires":{"bins":["python3"],"anyBins":["slither","aderyn"]},"primaryEnv":"SOLIDITYGUARD_PATH","install":{"npm":"solidityguard"}}}
+metadata: {"openclaw":{"emoji":"🛡️","homepage":"https://solidityguard.altllm.ai","os":["darwin","linux","win32"],"requires":{"bins":["python3"],"anyBins":["slither","aderyn"]},"primaryEnv":"SOLIDITYGUARD_PATH","install":{"npm":"solidityguard"}}}
 user-invocable: true
 ---
 
